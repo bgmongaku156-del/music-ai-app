@@ -12,10 +12,10 @@ typeof req.body==="string"
 : req.body
 
 const prompt =
-body?.prompt || "sleep music"
+body?.prompt || "relaxing sleep music"
 
-// 安定する長さ
-const seconds = 30
+// 安定する最短設定
+const seconds = 10
 
 const r = await fetch(
 "https://fal.run/fal-ai/stable-audio-25/text-to-audio",
@@ -33,7 +33,7 @@ seconds_total:seconds
 }
 )
 
-const d=await r.json()
+const d = await r.json()
 
 const url =
 typeof d.audio==="string"
@@ -49,13 +49,13 @@ debug:d
 
 }
 
-res.json({
+return res.json({
 url:url
 })
 
 }catch(e){
 
-res.json({
+return res.json({
 error:String(e)
 })
 
