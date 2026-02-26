@@ -1,16 +1,13 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-
-<title>AI音楽生成</title>
+<meta name="viewport" content="width=device-width">
 
 <style>
 
 body{
-background:#000;
+background:black;
 color:white;
 font-family:sans-serif;
 padding:20px;
@@ -24,7 +21,7 @@ font-size:18px;
 
 button{
 width:100%;
-padding:18px;
+padding:20px;
 font-size:20px;
 margin-top:10px;
 background:green;
@@ -38,47 +35,38 @@ width:100%;
 margin-top:20px;
 }
 
-a{
-display:block;
-margin-top:15px;
-color:lime;
-font-size:18px;
-}
-
 </style>
 
 </head>
 
 <body>
 
-<h2>AI音楽生成（商用利用OK）</h2>
+<h2>AI音楽生成</h2>
 
 <textarea id="prompt">
-relaxing sleep music calm ambient no vocals
+
+sleep relaxing music ambient no vocals
+
 </textarea>
 
-<button onclick="generate(300)">
+<button onclick="make(5)">
 5分生成
 </button>
 
-<button onclick="generate(600)">
+<button onclick="make(10)">
 10分生成
 </button>
 
 <audio id="player" controls></audio>
 
-<a id="download" download="music.wav">
-ダウンロード
-</a>
-
 <script>
 
-async function generate(seconds){
+async function make(minutes){
 
 const prompt =
 document.getElementById("prompt").value;
 
-const res =
+const r =
 await fetch("/api/music",{
 method:"POST",
 headers:{
@@ -86,27 +74,37 @@ headers:{
 },
 body:JSON.stringify({
 prompt:prompt,
-seconds:seconds
+minutes:minutes
 })
 });
 
-const data = await res.json();
+const d=await r.json();
 
-if(data.url){
+let player=
+document.getElementById("player");
 
-document.getElementById("player").src =
-data.url;
+// 結合再生
+let playlist=d.urls
 
-document.getElementById("download").href =
-data.url;
+let i=0
 
-}else{
+player.src=playlist[i]
 
-alert("生成失敗");
+player.onended=function(){
 
-console.log(data);
+i++
+
+if(i<playlist.length){
+
+player.src=playlist[i]
+
+player.play()
 
 }
+
+}
+
+player.play()
 
 }
 
