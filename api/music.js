@@ -2,34 +2,46 @@ export default async function handler(req, res) {
 
 try{
 
-// 長めのreference音源（安定）
+const prompt =
+req.query.prompt ||
+"Energetic EDM for driving, powerful beat";
+
+
+// 10分 = 600秒
+// 6秒曲を100個生成
+const count = 100;
+
+
+// reference（安定）
 const reference =
 "https://fal.media/files/lion/00TBS1xKM_EBH6hoS1b.mp3";
 
-const prompt =
-req.query.prompt ||
-"Energetic EDM for driving, powerful beat, long mix";
 
-// 180秒（3分）
-const duration = 180;
+let urls = [];
+
+
+for(let i=0;i<count;i++){
 
 const response = await fetch(
 "https://fal.run/fal-ai/minimax-music",
 {
 method:"POST",
+
 headers:{
 Authorization:"Key "+process.env.FAL_KEY,
 "Content-Type":"application/json"
 },
+
 body:JSON.stringify({
 
 prompt:prompt,
 
 reference_audio_url:reference,
 
-duration:duration
+duration:6
 
 })
+
 }
 );
 
@@ -39,24 +51,31 @@ const url =
 data?.audio?.url ||
 data?.output?.audio?.url;
 
-if(!url){
+if(url){
 
-return res.status(500).json({
-error:"生成失敗",
-data:data
-});
+urls.push(url);
 
 }
 
+}
+
+
+// URL一覧返す
 res.status(200).json({
+
 ok:true,
-url:url
+
+list:urls
+
 });
+
 
 }catch(e){
 
 res.status(500).json({
+
 error:e.toString()
+
 });
 
 }
