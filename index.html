@@ -3,100 +3,75 @@
 
 <head>
 <meta name="viewport" content="width=device-width">
-
-<style>
-
-body{
-background:black;
-color:white;
-font-family:sans-serif;
-padding:20px;
-}
-
-textarea{
-width:100%;
-height:120px;
-font-size:18px;
-}
-
-button{
-width:100%;
-padding:20px;
-font-size:20px;
-margin-top:10px;
-background:green;
-color:white;
-border:none;
-border-radius:10px;
-}
-
-audio{
-width:100%;
-margin-top:20px;
-}
-
-</style>
-
 </head>
 
-<body>
+<body style="background:black;color:white;font-family:sans-serif;padding:20px;">
 
 <h2>AI音楽生成</h2>
 
-<textarea id="prompt">
-
-sleep relaxing music ambient no vocals
-
+<textarea id="prompt" style="width:100%;height:120px;font-size:18px;">
+sleep relaxing ambient music no vocals
 </textarea>
 
-<button onclick="make(5)">
+<button onclick="make(5)" style="width:100%;padding:20px;font-size:20px;margin-top:10px;">
 5分生成
 </button>
 
-<button onclick="make(10)">
+<button onclick="make(10)" style="width:100%;padding:20px;font-size:20px;margin-top:10px;">
 10分生成
 </button>
 
-<audio id="player" controls></audio>
+<audio id="player" controls style="width:100%;margin-top:20px;"></audio>
 
 <script>
 
 async function make(minutes){
 
-const prompt =
-document.getElementById("prompt").value;
+let player=document.getElementById("player")
 
-const r =
-await fetch("/api/music",{
+player.src=""
+
+const prompt=
+document.getElementById("prompt").value
+
+const r=await fetch("/api/music",{
+
 method:"POST",
+
 headers:{
 "Content-Type":"application/json"
 },
+
 body:JSON.stringify({
 prompt:prompt,
 minutes:minutes
 })
-});
 
-const d=await r.json();
+})
 
-let player=
-document.getElementById("player");
+const d=await r.json()
 
-// 結合再生
-let playlist=d.urls
+if(!d.urls){
+
+alert("生成失敗")
+
+return
+
+}
+
+let list=d.urls
 
 let i=0
 
-player.src=playlist[i]
+player.src=list[0]
 
 player.onended=function(){
 
 i++
 
-if(i<playlist.length){
+if(i<list.length){
 
-player.src=playlist[i]
+player.src=list[i]
 
 player.play()
 
@@ -111,5 +86,4 @@ player.play()
 </script>
 
 </body>
-
 </html>
