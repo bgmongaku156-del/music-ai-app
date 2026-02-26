@@ -2,11 +2,11 @@ export default async function handler(req, res) {
 
 try{
 
-// 商用OK参考音源（必須）
+// 参考音源（Fal必須）
 const reference =
 "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8e0c1f3c2.mp3";
 
-// テキスト生成
+// テキスト入力
 const prompt =
 req.query.prompt || "EDM driving music";
 
@@ -27,7 +27,7 @@ prompt: prompt,
 
 reference_audio_url: reference,
 
-duration: 300
+duration: 180
 
 })
 
@@ -51,7 +51,6 @@ data:data
 
 }
 
-// 成功
 res.status(200).json({
 ok:true,
 url:url
