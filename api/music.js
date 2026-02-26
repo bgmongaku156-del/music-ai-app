@@ -1,15 +1,13 @@
-export default async function handler(req,res){
+export default async function handler(req, res) {
 
 try{
 
-const prompt=
-req.query.prompt||
-"Energetic EDM driving music";
+// プロンプト
+const prompt =
+req.query.prompt || "Driving EDM music energetic";
 
-const reference=
-"https://fal.media/files/lion/00TBS1xKM_EBH6hoS1b.mp3";
-
-const response=await fetch(
+// Fal呼び出し
+const response = await fetch(
 "https://fal.run/fal-ai/minimax-music",
 {
 method:"POST",
@@ -17,22 +15,44 @@ headers:{
 Authorization:"Key "+process.env.FAL_KEY,
 "Content-Type":"application/json"
 },
+
 body:JSON.stringify({
-prompt:prompt,
-reference_audio_url:reference,
-duration:6
+
+prompt: prompt,
+
+duration: 30,
+
+reference_audio_url:
+"https://fal.media/files/lion/OOTBTSixKM_EBH6h0s1b.mp3"
+
 })
 }
 );
 
-const data=await response.json();
+// Fal結果
+const data = await response.json();
 
-const url=
-data?.audio?.url||
+// URL取得
+const url =
+data?.audio?.url ||
 data?.output?.audio?.url;
 
+// エラー
+if(!url){
+
+return res.status(500).json({
+error:"Fal生成失敗",
+data:data
+});
+
+}
+
+// 成功
 res.status(200).json({
+
+ok:true,
 url:url
+
 });
 
 }catch(e){
