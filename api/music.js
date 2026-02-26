@@ -22,7 +22,7 @@ prompt:prompt,
 reference_audio_url:
 "https://fal.media/files/lion/OOTBTSlxKMH_E8H6hoSlb.mpga",
 
-duration:180
+duration:600
 
 })
 
