@@ -1,3 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta name="viewport" content="width=device-width">
+</head>
+
+<body>
+
+<h2>AI音楽生成</h2>
+
+<textarea id="prompt">
+relaxing sleep music
+</textarea>
+
+<br><br>
+
+<button onclick="gen()">
+音楽生成
+</button>
+
+<br><br>
+
+<audio id="player" controls></audio>
+
+<br><br>
+
+<a id="download" download="music.wav">
+ダウンロード
+</a>
+
 <script>
 
 async function gen(){
@@ -16,29 +47,27 @@ prompt:prompt
 })
 });
 
-const d=await r.json();
+const d = await r.json();
 
 if(d.url){
 
-const player =
-document.getElementById("player");
+// blobを使わない
+document.getElementById("player").src =
+d.url;
 
-player.src=d.url;
-
-// 重要
-player.load();
-player.play();
-
-document.getElementById("download").href=d.url;
+document.getElementById("download").href =
+d.url;
 
 }else{
 
 alert("生成失敗");
-
-console.log(d);
 
 }
 
 }
 
 </script>
+
+</body>
+
+</html>
