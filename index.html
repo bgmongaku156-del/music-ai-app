@@ -5,81 +5,54 @@
 <meta name="viewport" content="width=device-width">
 </head>
 
-<body style="background:black;color:white;font-family:sans-serif;padding:20px;">
+<body style="background:black;color:white;padding:20px;">
 
 <h2>AI音楽生成</h2>
 
-<textarea id="prompt" style="width:100%;height:120px;font-size:18px;">
+<textarea id="prompt" style="width:100%;height:120px;">
 sleep relaxing ambient music no vocals
 </textarea>
 
-<button onclick="make(5)" style="width:100%;padding:20px;font-size:20px;margin-top:10px;">
-5分生成
-</button>
-
-<button onclick="make(10)" style="width:100%;padding:20px;font-size:20px;margin-top:10px;">
-10分生成
+<button onclick="make()" style="width:100%;padding:20px;font-size:20px;">
+生成
 </button>
 
 <audio id="player" controls style="width:100%;margin-top:20px;"></audio>
 
+<a id="download" style="color:lime;display:block;margin-top:10px;">
+ダウンロード
+</a>
+
 <script>
 
-async function make(minutes){
-
-let player=document.getElementById("player")
-
-player.src=""
+async function make(){
 
 const prompt=
 document.getElementById("prompt").value
 
 const r=await fetch("/api/music",{
-
 method:"POST",
-
 headers:{
 "Content-Type":"application/json"
 },
-
 body:JSON.stringify({
-prompt:prompt,
-minutes:minutes
+prompt:prompt
 })
-
 })
 
 const d=await r.json()
 
-if(!d.urls){
+if(d.url){
+
+player.src=d.url
+download.href=d.url
+
+}else{
 
 alert("生成失敗")
-
-return
-
-}
-
-let list=d.urls
-
-let i=0
-
-player.src=list[0]
-
-player.onended=function(){
-
-i++
-
-if(i<list.length){
-
-player.src=list[i]
-
-player.play()
+console.log(d)
 
 }
-
-}
-
-player.play()
 
 }
 
