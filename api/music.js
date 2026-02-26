@@ -11,7 +11,7 @@ typeof req.body === "string"
 ? JSON.parse(req.body)
 : req.body
 
-const prompt = body?.prompt || "lofi background music"
+const prompt = body?.prompt || "relaxing music"
 
 const response = await fetch(
 "https://fal.run/fal-ai/musicgen-small",
@@ -23,40 +23,47 @@ headers: {
 },
 body: JSON.stringify({
 prompt: prompt,
-duration: 30
+duration: 20
 })
 }
 )
 
-const data = await response.json()
+const result = await response.json()
 
-// falの返り値パターン全部対応
+console.log("FAL RESULT:", result)
+
+// falの正式音声URL
 let audioUrl = null
 
-if (data?.audio?.url) {
-audioUrl = data.audio.url
+if(result.audio && result.audio.url){
+audioUrl = result.audio.url
 }
 
-if (!audioUrl && data?.audio_url) {
-audioUrl = data.audio_url
+if(result.audio_url){
+audioUrl = result.audio_url
 }
 
-if (!audioUrl && data?.outputs?.[0]?.audio?.url) {
-audioUrl = data.outputs[0].audio.url
+if(result.url){
+audioUrl = result.url
 }
 
-if (!audioUrl) {
-console.log("fal response:", data)
-return res.status(500).json({ error: "音声URL取得失敗" })
+if(!audioUrl){
+return res.json({
+error:"音声URL取得失敗",
+debug: result
+})
 }
 
-// ここは今まで通り
-return res.json({ url: audioUrl })
+return res.json({
+url: audioUrl
+})
 
-} catch (err) {
+}catch(err){
 
-console.log("server error:", err)
-return res.status(500).json({ error: "サーバーエラー" })
+return res.json({
+error:"サーバーエラー",
+message:String(err)
+})
 
 }
 
