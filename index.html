@@ -22,6 +22,12 @@ padding:15px;
 margin:10px;
 }
 
+input{
+font-size:18px;
+padding:10px;
+width:80%;
+}
+
 audio{
 width:90%;
 margin-top:20px;
@@ -34,6 +40,11 @@ margin-top:20px;
 <body>
 
 <h2>AI音楽MP3生成</h2>
+
+<input id="prompt"
+placeholder="例: Energetic EDM driving music">
+
+<br><br>
 
 <button onclick="generate(10)">
 10分MP3生成
@@ -61,8 +72,14 @@ style="color:#0f0;font-size:20px">
 
 async function generate(minutes){
 
+const prompt =
+document.getElementById("prompt").value
+|| "Driving EDM";
+
+
 const segments =
 Math.floor((minutes*60)/6);
+
 
 let buffers=[];
 
@@ -71,16 +88,21 @@ let buffers=[];
 for(let i=0;i<segments;i++){
 
 const res=
-await fetch("/api/music");
+await fetch(
+"/api/music?prompt="+prompt
+);
 
 const data=
 await res.json();
 
+
 const mp3=
 await fetch(data.url);
 
+
 const array=
 await mp3.arrayBuffer();
+
 
 buffers.push(array);
 
@@ -94,10 +116,13 @@ buffers.forEach(b=>{
 totalLength+=b.byteLength;
 });
 
+
 const merged=
 new Uint8Array(totalLength);
 
+
 let offset=0;
+
 
 buffers.forEach(b=>{
 
@@ -108,7 +133,7 @@ offset+=b.byteLength;
 });
 
 
-// Blob化
+// Blob
 const blob=
 new Blob([merged],{
 type:"audio/mp3"
@@ -132,8 +157,7 @@ d.href=url;
 
 d.download="ai-music.mp3";
 
-d.innerText=
-"MP3ダウンロード";
+d.innerText="MP3ダウンロード";
 
 }
 
