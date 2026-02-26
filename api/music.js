@@ -2,15 +2,15 @@ export default async function handler(req, res) {
 
 try{
 
-// 参考音源（必須）
+// 商用OK参考音源（必須）
 const reference =
 "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8e0c1f3c2.mp3";
 
-// プロンプト
+// テキスト生成
 const prompt =
 req.query.prompt || "EDM driving music";
 
-// Fal API
+// Fal AI生成
 const response = await fetch(
 "https://fal.run/fal-ai/minimax-music",
 {
@@ -27,7 +27,7 @@ prompt: prompt,
 
 reference_audio_url: reference,
 
-duration: 600
+duration: 300
 
 })
 
@@ -36,19 +36,22 @@ duration: 600
 
 const data = await response.json();
 
+// URL取得
 const url =
 data?.audio?.url ||
-data?.output?.audio?.url;
+data?.output?.audio?.url ||
+data?.url;
 
 if(!url){
 
 return res.status(500).json({
-error:"Fal生成失敗",
+error:"生成失敗",
 data:data
 });
 
 }
 
+// 成功
 res.status(200).json({
 ok:true,
 url:url
