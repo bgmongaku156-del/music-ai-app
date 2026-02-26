@@ -11,58 +11,53 @@ typeof req.body === "string"
 ? JSON.parse(req.body)
 : req.body
 
-const prompt = body?.prompt || "relaxing music"
+const prompt =
+body?.prompt || "relaxing sleep music"
+
+const seconds =
+body?.seconds || 300
 
 const response = await fetch(
 "https://fal.run/fal-ai/musicgen-small",
 {
-method: "POST",
-headers: {
-"Authorization": "Key " + process.env.FAL_KEY,
-"Content-Type": "application/json"
+method:"POST",
+headers:{
+"Authorization":
+"Key f933e32d-5cca-4096-b475-daf56cffc456:241d754d74bcb80c66ad18a9a3dc20c5",
+"Content-Type":"application/json"
 },
-body: JSON.stringify({
-prompt: prompt,
-duration: 20
+body:JSON.stringify({
+prompt:prompt,
+duration:seconds
 })
 }
 )
 
-const result = await response.json()
+const data = await response.json()
 
-console.log("FAL RESULT:", result)
+const url =
+data?.audio_url ||
+data?.audio?.url ||
+data?.url ||
+null
 
-// falの正式音声URL
-let audioUrl = null
-
-if(result.audio && result.audio.url){
-audioUrl = result.audio.url
-}
-
-if(result.audio_url){
-audioUrl = result.audio_url
-}
-
-if(result.url){
-audioUrl = result.url
-}
-
-if(!audioUrl){
-return res.json({
-error:"音声URL取得失敗",
-debug: result
-})
-}
+if(!url){
 
 return res.json({
-url: audioUrl
+error:"生成失敗",
+debug:data
 })
 
-}catch(err){
+}
 
 return res.json({
-error:"サーバーエラー",
-message:String(err)
+url:url
+})
+
+}catch(e){
+
+return res.json({
+error:String(e)
 })
 
 }
