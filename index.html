@@ -1,40 +1,25 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 
 <head>
 
-<meta charset="UTF-8">
-
 <meta name="viewport"
-content="width=device-width,initial-scale=1">
-
-<title>AI自動作曲</title>
+content="width=device-width">
 
 <style>
 
 body{
-font-family:sans-serif;
-text-align:center;
-padding:30px;
 background:#111;
 color:white;
+text-align:center;
+font-family:sans-serif;
+padding:30px;
 }
 
 button{
 font-size:20px;
 padding:15px;
 margin:10px;
-border-radius:12px;
-border:none;
-background:#4CAF50;
-color:white;
-width:220px;
-}
-
-input{
-font-size:18px;
-padding:10px;
-width:80%;
 }
 
 audio{
@@ -48,12 +33,7 @@ margin-top:20px;
 
 <body>
 
-<h2>AI自動作曲</h2>
-
-<input id="prompt"
-placeholder="Driving EDM">
-
-<br><br>
+<h2>AI音楽MP3生成</h2>
 
 <button onclick="generate(10)">
 10分MP3生成
@@ -65,8 +45,7 @@ placeholder="Driving EDM">
 30分MP3生成
 </button>
 
-
-<br><br>
+<br>
 
 <audio id="player"
 controls></audio>
@@ -74,44 +53,87 @@ controls></audio>
 <br><br>
 
 <a id="download"
-style="color:#0f0;font-size:20px"
-></a>
-
+style="color:#0f0;font-size:20px">
+</a>
 
 
 <script>
 
 async function generate(minutes){
 
-const prompt =
-document.getElementById("prompt").value
-|| "Driving EDM";
+const segments =
+Math.floor((minutes*60)/6);
+
+let buffers=[];
+
+
+// AI生成ループ
+for(let i=0;i<segments;i++){
+
+const res=
+await fetch("/api/music");
+
+const data=
+await res.json();
+
+const mp3=
+await fetch(data.url);
+
+const array=
+await mp3.arrayBuffer();
+
+buffers.push(array);
+
+}
+
+
+// MP3結合
+let totalLength=0;
+
+buffers.forEach(b=>{
+totalLength+=b.byteLength;
+});
+
+const merged=
+new Uint8Array(totalLength);
+
+let offset=0;
+
+buffers.forEach(b=>{
+
+merged.set(new Uint8Array(b),offset);
+
+offset+=b.byteLength;
+
+});
+
+
+// Blob化
+const blob=
+new Blob([merged],{
+type:"audio/mp3"
+});
 
 
 const url=
-"/api/music?prompt="+prompt+
-"&minutes="+minutes;
+URL.createObjectURL(blob);
 
 
 // 再生
-const player=
-document.getElementById("player");
-
-player.src=url;
-player.play();
+document.getElementById("player")
+.src=url;
 
 
-// ダウンロードリンク
+// ダウンロード
 const d=
 document.getElementById("download");
 
 d.href=url;
 
-d.innerText=
-"MP3ダウンロード ("+
-minutes+"分)";
-
 d.download="ai-music.mp3";
+
+d.innerText=
+"MP3ダウンロード";
 
 }
 
