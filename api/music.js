@@ -4,22 +4,25 @@ try{
 
 const prompt =
 req.query.prompt ||
-"Energetic EDM for driving, powerful beat";
+"Energetic EDM for driving";
+
+const minutes =
+parseInt(req.query.minutes || "10");
+
+// 6秒単位
+const count =
+Math.floor((minutes*60)/6);
 
 
-// 10分 = 600秒
-// 6秒曲を100個生成
-const count = 100;
-
-
-// reference（安定）
+// reference音声
 const reference =
 "https://fal.media/files/lion/00TBS1xKM_EBH6hoS1b.mp3";
 
 
-let urls = [];
+let buffers=[];
 
 
+// AI生成
 for(let i=0;i<count;i++){
 
 const response = await fetch(
@@ -35,9 +38,7 @@ Authorization:"Key "+process.env.FAL_KEY,
 body:JSON.stringify({
 
 prompt:prompt,
-
 reference_audio_url:reference,
-
 duration:6
 
 })
@@ -51,23 +52,41 @@ const url =
 data?.audio?.url ||
 data?.output?.audio?.url;
 
-if(url){
+if(!url) continue;
 
-urls.push(url);
+
+// MP3取得
+const mp3res =
+await fetch(url);
+
+const arrayBuffer =
+await mp3res.arrayBuffer();
+
+
+buffers.push(
+Buffer.from(arrayBuffer)
+);
 
 }
 
-}
+
+// MP3結合
+const merged =
+Buffer.concat(buffers);
 
 
-// URL一覧返す
-res.status(200).json({
+// MP3出力
+res.setHeader(
+"Content-Type",
+"audio/mpeg"
+);
 
-ok:true,
+res.setHeader(
+"Content-Disposition",
+"attachment; filename=ai-music.mp3"
+);
 
-list:urls
-
-});
+res.send(merged);
 
 
 }catch(e){
