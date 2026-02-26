@@ -2,15 +2,15 @@ export default async function handler(req, res) {
 
 try{
 
-// 参考音源（Fal必須）
+// Fal公式サンプル音源（確実に動く）
 const reference =
-"https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8e0c1f3c2.mp3";
+"https://fal.media/files/lion/00TBS1xKM_EBH6hoS1b.mp3";
 
-// テキスト入力
+// プロンプト
 const prompt =
-req.query.prompt || "EDM driving music";
+req.query.prompt || "Energetic EDM driving music";
 
-// Fal AI生成
+// Fal生成
 const response = await fetch(
 "https://fal.run/fal-ai/minimax-music",
 {
@@ -51,6 +51,7 @@ data:data
 
 }
 
+// 成功
 res.status(200).json({
 ok:true,
 url:url
