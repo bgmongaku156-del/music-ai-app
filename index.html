@@ -1,62 +1,18 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="ja">
 <head>
-<meta name="viewport" content="width=device-width">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI音楽生成</title>
+  <style>
+    body{background:#000;color:#fff;font-family:sans-serif;padding:20px}
+    textarea{width:100%;height:120px;font-size:16px}
+    button{width:100%;padding:16px;font-size:18px;margin-top:10px;border:0;border-radius:10px;background:#19a34a;color:#fff}
+    audio{width:100%;margin-top:16px}
+    .small{opacity:.8;font-size:13px;margin-top:8px;line-height:1.4}
+  </style>
 </head>
+<body>
+  <h2>AI音楽生成（5分 / 10分）</h2>
 
-<body style="background:black;color:white;padding:20px;">
-
-<h2>AI音楽生成</h2>
-
-<textarea id="prompt" style="width:100%;height:120px;">
-sleep relaxing ambient music no vocals
-</textarea>
-
-<button onclick="make()" style="width:100%;padding:20px;font-size:20px;">
-生成
-</button>
-
-<audio id="player" controls style="width:100%;margin-top:20px;"></audio>
-
-<a id="download" style="color:lime;display:block;margin-top:10px;">
-ダウンロード
-</a>
-
-<script>
-
-async function make(){
-
-const prompt=
-document.getElementById("prompt").value
-
-const r=await fetch("/api/music",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-prompt:prompt
-})
-})
-
-const d=await r.json()
-
-if(d.url){
-
-player.src=d.url
-download.href=d.url
-
-}else{
-
-alert("生成失敗")
-console.log(d)
-
-}
-
-}
-
-</script>
-
-</body>
-</html>
+  <textarea id="prompt">deep sleep relaxing ambient music slow calm peaceful soft piano and pads no vocals
