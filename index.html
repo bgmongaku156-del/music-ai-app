@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width,initial-scale=1">
 
-<title>10分EDM自動生成</title>
+<title>AI自動作曲</title>
 
 <style>
 
@@ -28,11 +28,7 @@ border-radius:12px;
 border:none;
 background:#4CAF50;
 color:white;
-}
-
-audio{
-width:90%;
-margin-top:20px;
+width:220px;
 }
 
 input{
@@ -41,71 +37,81 @@ padding:10px;
 width:80%;
 }
 
+audio{
+width:90%;
+margin-top:20px;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<h2>AI 10分EDM生成</h2>
+<h2>AI自動作曲</h2>
 
 <input id="prompt"
 placeholder="Driving EDM">
 
-<br>
+<br><br>
 
-<button onclick="generate()">
-10分生成
+<button onclick="generate(10)">
+10分MP3生成
 </button>
 
 <br>
 
+<button onclick="generate(30)">
+30分MP3生成
+</button>
+
+
+<br><br>
+
 <audio id="player"
 controls></audio>
 
+<br><br>
+
+<a id="download"
+style="color:#0f0;font-size:20px"
+></a>
+
+
+
 <script>
 
-let list=[];
-let index=0;
-
-async function generate(){
+async function generate(minutes){
 
 const prompt =
 document.getElementById("prompt").value
 || "Driving EDM";
 
-const res =
-await fetch(
-"/api/music?prompt="+prompt
-);
 
-const data =
-await res.json();
-
-list=data.list;
-
-index=0;
-
-playNext();
-
-}
+const url=
+"/api/music?prompt="+prompt+
+"&minutes="+minutes;
 
 
-
-function playNext(){
-
-if(index>=list.length)return;
-
-const player =
+// 再生
+const player=
 document.getElementById("player");
 
-player.src=list[index];
-
+player.src=url;
 player.play();
 
-index++;
 
-player.onended=playNext;
+// ダウンロードリンク
+const d=
+document.getElementById("download");
+
+d.href=url;
+
+d.innerText=
+"MP3ダウンロード ("+
+minutes+"分)";
+
+d.download="ai-music.mp3";
 
 }
 
