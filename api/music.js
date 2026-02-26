@@ -7,20 +7,28 @@ return res.status(405).json({error:"POST only"})
 try{
 
 const body =
-typeof req.body === "string"
+typeof req.body==="string"
 ? JSON.parse(req.body)
 : req.body
 
 const prompt =
-body?.prompt || "sleep music"
+body?.prompt || "sleep relaxing music"
 
 const minutes =
 body?.minutes || 5
 
-// 30秒単位で生成
-const parts = minutes * 2
+// 最大制限（安定用）
+const maxParts = 8
 
-let urls = []
+// 30秒単位生成
+let parts = Math.ceil(minutes*60/30)
+
+// 制限
+if(parts>maxParts){
+parts=maxParts
+}
+
+let urls=[]
 
 for(let i=0;i<parts;i++){
 
@@ -40,9 +48,9 @@ duration:30
 }
 )
 
-const d = await r.json()
+const d=await r.json()
 
-const url =
+const url=
 d?.audio_url ||
 d?.audio?.url ||
 d?.url ||
@@ -54,7 +62,15 @@ urls.push(url)
 
 }
 
-// URL配列返す
+// 最低1個必要
+if(urls.length===0){
+
+return res.json({
+error:"生成失敗"
+})
+
+}
+
 res.json({
 urls:urls
 })
