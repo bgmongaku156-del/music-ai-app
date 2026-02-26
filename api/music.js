@@ -1,7 +1,7 @@
 export default async function handler(req,res){
 
-if(req.method !== "POST"){
-return res.status(405).json({error:"POST only"})
+if(req.method!=="POST"){
+return res.status(200).json({error:"POST only"})
 }
 
 try{
@@ -12,26 +12,9 @@ typeof req.body==="string"
 : req.body
 
 const prompt =
-body?.prompt || "sleep relaxing music"
+body?.prompt || "relaxing sleep music"
 
-const minutes =
-body?.minutes || 5
-
-// 最大制限（安定用）
-const maxParts = 8
-
-// 30秒単位生成
-let parts = Math.ceil(minutes*60/30)
-
-// 制限
-if(parts>maxParts){
-parts=maxParts
-}
-
-let urls=[]
-
-for(let i=0;i<parts;i++){
-
+// 1回だけ生成（安定）
 const r = await fetch(
 "https://fal.run/fal-ai/musicgen-small",
 {
@@ -43,41 +26,35 @@ headers:{
 },
 body:JSON.stringify({
 prompt:prompt,
-duration:30
+duration:20
 })
 }
 )
 
-const d=await r.json()
+const d = await r.json()
 
-const url=
+const url =
 d?.audio_url ||
 d?.audio?.url ||
 d?.url ||
 null
 
-if(url){
-urls.push(url)
-}
-
-}
-
-// 最低1個必要
-if(urls.length===0){
+if(!url){
 
 return res.json({
-error:"生成失敗"
+error:"生成失敗",
+debug:d
 })
 
 }
 
-res.json({
-urls:urls
+return res.json({
+url:url
 })
 
 }catch(e){
 
-res.json({
+return res.json({
 error:String(e)
 })
 
