@@ -4,9 +4,11 @@
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>AI音楽生成＋ダウンロード</title>
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<title>10分EDM自動生成</title>
 
 <style>
 
@@ -19,20 +21,13 @@ color:white;
 }
 
 button{
-font-size:18px;
-padding:12px;
-margin:8px;
-border-radius:10px;
+font-size:20px;
+padding:15px;
+margin:10px;
+border-radius:12px;
 border:none;
 background:#4CAF50;
 color:white;
-}
-
-input{
-font-size:18px;
-padding:10px;
-width:80%;
-margin:10px;
 }
 
 audio{
@@ -40,9 +35,10 @@ width:90%;
 margin-top:20px;
 }
 
-#status{
-margin-top:10px;
-color:#ccc;
+input{
+font-size:18px;
+padding:10px;
+width:80%;
 }
 
 </style>
@@ -51,88 +47,65 @@ color:#ccc;
 
 <body>
 
-<h2>AI音楽生成</h2>
+<h2>AI 10分EDM生成</h2>
 
 <input id="prompt"
-placeholder="例: battle music epic orchestra">
+placeholder="Driving EDM">
 
 <br>
 
 <button onclick="generate()">
-AI生成
+10分生成
 </button>
-
-<button onclick="downloadMusic()">
-ダウンロード
-</button>
-
-<div id="status">
-待機中
-</div>
 
 <br>
 
-<audio id="player" controls></audio>
+<audio id="player"
+controls></audio>
 
 <script>
 
-let currentUrl="";
+let list=[];
+let index=0;
 
 async function generate(){
 
-document.getElementById("status").innerText="生成中...";
-
-const prompt=
+const prompt =
 document.getElementById("prompt").value
-|| "lofi chill music";
+|| "Driving EDM";
 
-const res=
-await fetch("/api/music?prompt="+prompt);
+const res =
+await fetch(
+"/api/music?prompt="+prompt
+);
 
-const data=
+const data =
 await res.json();
 
-if(!data.url){
+list=data.list;
 
-document.getElementById("status").innerText=
-"生成失敗";
+index=0;
 
-return;
+playNext();
+
 }
 
-currentUrl=data.url;
 
-const player=
+
+function playNext(){
+
+if(index>=list.length)return;
+
+const player =
 document.getElementById("player");
 
-player.src=currentUrl;
+player.src=list[index];
 
 player.play();
 
-document.getElementById("status").innerText=
-"生成完了";
+index++;
 
-}
-
-
-function downloadMusic(){
-
-if(!currentUrl){
-alert("先に生成してください");
-return;
-}
-
-const a=document.createElement("a");
-
-a.href=currentUrl;
-
-a.download="ai-music.mp3";
-
-document.body.appendChild(a);
-
-a.click();
-
-document.body.removeChild(a);
+player.onended=playNext;
 
 }
 
