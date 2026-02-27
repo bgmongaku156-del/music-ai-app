@@ -1,139 +1,296 @@
-export default async function handler(req, res) {
-  const FAL_KEY = process.env.FAL_KEY;
+export default async function handler(req,res){
 
-  if (!FAL_KEY) {
-    return res.status(500).json({ error: "Server misconfigured", detail: "FAL_KEY is missing" });
-  }
+const FAL_KEY=process.env.FAL_KEY;
 
-  // 405対策：POSTだけに統一（Vercel側でGETが弾かれても動く）
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
-  }
+if(!FAL_KEY){
 
-  let body;
-  try {
-    body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-  } catch (e) {
-    return res.status(400).json({ error: "Invalid JSON body", detail: String(e) });
-  }
+return res.status(500).json({
 
-  // action === "status" なら進捗/結果取得（GETの代わり）
-  const action = (body.action || "").toString();
+error:"FAL_KEY missing"
 
-  try {
-    // ---------- STATUS ----------
-    if (action === "status") {
-      const requestId = (body.request_id || "").toString().trim();
-      if (!requestId) return res.status(400).json({ error: "request_id is required" });
+});
 
-      // status
-      const statusRes = await fetch(
-        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}/status`,
-        { headers: { Authorization: `Key ${FAL_KEY}` } }
-      );
+}
 
-      const statusText = await statusRes.text();
-      let statusJson;
-      try {
-        statusJson = JSON.parse(statusText);
-      } catch {
-        return res.status(502).json({ error: "Bad response from fal(status)", raw: statusText });
-      }
 
-      if (!statusRes.ok) {
-        return res.status(statusRes.status).json({ error: "fal status error", detail: statusJson });
-      }
 
-      if (statusJson.status !== "COMPLETED") {
-        return res.status(200).json({
-          status: statusJson.status,
-          request_id: requestId,
-          queue_position: statusJson.queue_position ?? null,
-        });
-      }
+// =====POSTのみ=====
 
-      // completed -> result
-      const resultRes = await fetch(
-        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}`,
-        { headers: { Authorization: `Key ${FAL_KEY}` } }
-      );
+if(req.method!=="POST"){
 
-      const resultText = await resultRes.text();
-      let resultJson;
-      try {
-        resultJson = JSON.parse(resultText);
-      } catch {
-        return res.status(502).json({ error: "Bad response from fal(result)", raw: resultText });
-      }
+return res.status(405).json({
 
-      if (!resultRes.ok) {
-        return res.status(resultRes.status).json({ error: "fal result error", detail: resultJson });
-      }
+error:"POST only"
 
-      // Stable Audio 2.5 の返り値に合わせてURL抽出（保険多め）
-      const url =
-        resultJson?.audio_file?.url ||
-        resultJson?.audio?.url ||
-        resultJson?.url ||
-        resultJson?.data?.audio?.url ||
-        resultJson?.audios?.[0]?.url ||
-        null;
+});
 
-      if (!url) {
-        return res.status(500).json({ error: "No audio url in result", result: resultJson });
-      }
+}
 
-      return res.status(200).json({ status: "COMPLETED", request_id: requestId, url });
-    }
 
-    // ---------- START (GENERATE) ----------
-    const prompt = (body.prompt ?? "").toString().trim();
-    const duration = Number(body.duration);
 
-    if (!prompt) return res.status(400).json({ error: "prompt is required" });
+try{
 
-    // seconds_total: 1〜190に丸め（UIは 10/60/180想定）
-    let seconds_total = Math.round(duration);
-    if (!Number.isFinite(seconds_total)) seconds_total = 10;
-    if (seconds_total < 1) seconds_total = 1;
-    if (seconds_total > 190) seconds_total = 190;
+const body=
+typeof req.body==="string"
+? JSON.parse(req.body)
+:req.body;
 
-    const falRes = await fetch("https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${FAL_KEY}`,
-      },
-      body: JSON.stringify({
-        prompt,
-        seconds_total,
-        num_inference_steps: 4,
-        guidance_scale: 1,
-        sync_mode: false,
-      }),
-    });
 
-    const falText = await falRes.text();
-    let falJson;
-    try {
-      falJson = JSON.parse(falText);
-    } catch {
-      return res.status(502).json({ error: "fal returned non-JSON", raw: falText });
-    }
 
-    if (!falRes.ok) {
-      return res.status(falRes.status).json({ error: "fal error", detail: falJson });
-    }
+// =====status確認=====
 
-    if (!falJson.request_id) {
-      return res.status(500).json({ error: "No request_id", detail: falJson });
-    }
+if(body.action==="status"){
 
-    return res.status(200).json({
-      request_id: falJson.request_id,
-      status: falJson.status ?? "IN_QUEUE",
-    });
-  } catch (e) {
-    return res.status(500).json({ error: "Server error", detail: String(e) });
-  }
+const requestId=body.request_id;
+
+if(!requestId){
+
+return res.status(400).json({
+
+error:"request_id required"
+
+});
+
+}
+
+
+
+// status取得
+
+const statusRes=await fetch(
+
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}/status`,
+
+{
+
+headers:{
+Authorization:`Key ${FAL_KEY}`
+}
+
+});
+
+
+
+const statusText=await statusRes.text();
+
+
+
+let statusJson;
+
+try{
+statusJson=JSON.parse(statusText);
+}
+catch{
+
+return res.status(500).json({
+
+error:"ステータス JSON エラー",
+
+raw:statusText
+
+});
+
+}
+
+
+
+// 完了していない
+
+if(statusJson.status!=="COMPLETED"){
+
+return res.json({
+
+status:statusJson.status,
+
+queue_position:statusJson.queue_position
+
+});
+
+}
+
+
+
+// 完了→取得
+
+const resultRes=await fetch(
+
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}`,
+
+{
+
+headers:{
+Authorization:`Key ${FAL_KEY}`
+}
+
+});
+
+
+
+const resultText=await resultRes.text();
+
+
+let resultJson;
+
+try{
+resultJson=JSON.parse(resultText);
+}
+catch{
+
+return res.status(500).json({
+
+error:"結果 JSON エラー",
+
+raw:resultText
+
+});
+
+}
+
+
+
+const url=
+
+resultJson?.audio?.url ||
+
+resultJson?.audio_file?.url ||
+
+resultJson?.url ||
+
+null;
+
+
+
+if(!url){
+
+return res.status(500).json({
+
+error:"音声URL無し",
+
+result:resultJson
+
+});
+
+}
+
+
+
+return res.json({
+
+status:"COMPLETED",
+
+url:url
+
+});
+
+}
+
+
+
+// =====生成開始=====
+
+const prompt=body.prompt;
+
+const duration=body.duration||10;
+
+
+if(!prompt){
+
+return res.status(400).json({
+
+error:"prompt is required"
+
+});
+
+}
+
+
+
+// StableAudio生成
+
+const falRes=await fetch(
+
+"https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio",
+
+{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+Authorization:`Key ${FAL_KEY}`
+},
+
+body:JSON.stringify({
+
+prompt:prompt,
+
+seconds_total:duration,
+
+num_inference_steps:4,
+guidance_scale:1
+
+})
+
+});
+
+
+
+const falText=await falRes.text();
+
+
+
+let falJson;
+
+try{
+falJson=JSON.parse(falText);
+}
+catch{
+
+return res.status(500).json({
+
+error:"fal JSON エラー",
+
+raw:falText
+
+});
+
+}
+
+
+
+if(!falJson.request_id){
+
+return res.status(500).json({
+
+error:"request_id無し",
+
+data:falJson
+
+});
+
+}
+
+
+
+return res.json({
+
+request_id:falJson.request_id,
+
+status:"IN_QUEUE"
+
+});
+
+
+
+}catch(e){
+
+return res.status(500).json({
+
+error:String(e)
+
+});
+
+}
+
+
 }
