@@ -1,70 +1,66 @@
-export default async function handler(req, res) {
+let running = false;
 
-  if (req.method !== "POST") {
-    return res.status(200).json({ error: "POSTのみ" });
-  }
+export default async function handler(req,res){
 
-  try {
+if(req.method!=="POST"){
+return res.json({error:"POST only"})
+}
 
-    if (!process.env.FAL_KEY) {
-      return res.status(500).json({ error: "FAL_KEY missing" });
-    }
+if(running){
 
-    const { prompt = "relaxing ambient music", duration = 10 } = req.body || {};
+return res.json({
+error:"busy",
+message:"他の生成が終わるまで待ってください"
+})
 
-    const seconds = Math.max(5, Math.min(duration, 30));
+}
 
-    // 正しいMusicGenモデル
-    const url = "https://fal.run/fal-ai/musicgen";
+running=true;
 
-    const response = await fetch(url,{
-      method:"POST",
-      headers:{
-        "Authorization":`Key ${process.env.FAL_KEY}`,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({
-        prompt:prompt,
-        duration:seconds
-      })
-    });
+try{
 
-    const data = await response.json();
+const {prompt,duration}=req.body;
 
-    if(!response.ok){
+const result = await fetch(
+"https://fal.run/fal-ai/musicgen-small",
+{
+method:"POST",
+headers:{
+"Authorization":"Key "+process.env.FAL_KEY,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+prompt:prompt,
+duration:duration
+})
+});
 
-      return res.status(500).json({
-        error:"fal error",
-        data:data
-      });
+const json=await result.json();
 
-    }
+running=false;
 
-    const audioUrl =
-      data?.audio?.url ||
-      data?.data?.audio?.url ||
-      data?.audios?.[0]?.url;
+if(!json.audio_url){
 
-    if(!audioUrl){
+return res.json({
+error:"fal error",
+data:json
+})
 
-      return res.status(500).json({
-        error:"audio not found",
-        data:data
-      });
+}
 
-    }
+return res.json({
+url:json.audio_url
+})
 
-    res.status(200).json({
-      url:audioUrl
-    });
+}catch(e){
 
-  } catch(e){
+running=false;
 
-    res.status(500).json({
-      error:"server error",
-      message:String(e)
-    });
+return res.json({
+error:"server error",
+message:e.toString()
+})
 
-  }
+}
 
 }
