@@ -5,147 +5,359 @@
 <title>AI音楽生成</title>
 
 <style>
-body{background:#000;color:white;text-align:center;font-family:sans-serif;padding:20px;}
-textarea{width:90%;height:120px;font-size:16px;}
-button{width:90%;padding:20px;margin:10px;font-size:18px;background:#2e7d32;color:white;border:none;border-radius:10px;}
-button:disabled{background:#555;}
-audio{width:90%;margin-top:20px;}
-#error{width:90%;margin:auto;margin-top:20px;background:#111;padding:10px;text-align:left;font-size:13px;white-space:pre-wrap;}
+body{
+background:#000;
+color:white;
+text-align:center;
+font-family:sans-serif;
+padding:20px;
+}
+
+textarea{
+width:90%;
+height:120px;
+font-size:16px;
+}
+
+button{
+width:90%;
+padding:20px;
+margin:10px;
+font-size:18px;
+background:#2e7d32;
+color:white;
+border:none;
+border-radius:10px;
+}
+
+button:disabled{
+background:#555;
+}
+
+audio{
+width:90%;
+margin-top:20px;
+}
+
+#error{
+width:90%;
+margin:auto;
+margin-top:20px;
+background:#111;
+padding:10px;
+text-align:left;
+font-size:13px;
+white-space:pre-wrap;
+}
 </style>
+
 </head>
 
 <body>
+
 <h1>AI音楽生成</h1>
 
 <textarea id="prompt">relaxing ambient music</textarea>
+
 <br>
 
-<button onclick="generateMusic(10)" id="btn10">10秒生成（テスト）</button>
-<button onclick="generateMusic(60)" id="btn60">1分生成</button>
-<button onclick="generateMusic(180)" id="btn180">3分生成</button>
+<button onclick="generateMusic(10)" id="btn10">
+10秒生成（テスト）
+</button>
 
-<p id="status">待機中</p>
+<button onclick="generateMusic(60)" id="btn60">
+1分生成
+</button>
+
+<button onclick="generateMusic(180)" id="btn180">
+3分生成
+</button>
+
+<p id="status">
+待機中
+</p>
 
 <audio id="audio" controls></audio>
 
 <div id="error"></div>
 
 <script>
-const apiUrl = "/api/music";
 
-let generating = false;
-let pollTimer = null;
+const apiUrl="/api/music";
+
+let generating=false;
+let pollTimer=null;
+
+
 
 function setButtonsDisabled(disabled){
-  btn10.disabled = disabled;
-  btn60.disabled = disabled;
-  btn180.disabled = disabled;
+
+document.getElementById("btn10").disabled=disabled;
+document.getElementById("btn60").disabled=disabled;
+document.getElementById("btn180").disabled=disabled;
+
 }
+
+
 
 function clearPoll(){
-  if (pollTimer) clearTimeout(pollTimer);
-  pollTimer = null;
+
+if(pollTimer) clearTimeout(pollTimer);
+
+pollTimer=null;
+
 }
+
+
 
 async function safeJson(res){
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch { throw new Error("JSON parse failed: " + text); }
+
+const text=await res.text();
+
+try{
+return JSON.parse(text);
 }
+catch{
+
+throw new Error(text);
+
+}
+
+}
+
+
+
 
 async function generateMusic(sec){
-  // 強い連打防止（多重実行を絶対にしない）
-  if (generating) return;
 
-  generating = true;
-  clearPoll();
-  status.innerText = "生成中...";
-  error.innerText = "";
-  setButtonsDisabled(true);
+if(generating) return;
 
-  try{
-    // 1) 生成開始（POST）
-    const startRes = await fetch(apiUrl, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ prompt: prompt.value, duration: sec })
-    });
 
-    const startJson = await safeJson(startRes);
+generating=true;
 
-    if (!startRes.ok) {
-      throw new Error(JSON.stringify(startJson, null, 2));
-    }
-    if (!startJson.request_id) {
-      throw new Error("No request_id:\n" + JSON.stringify(startJson, null, 2));
-    }
+clearPoll();
 
-    const requestId = startJson.request_id;
-    status.innerText = "作曲中...";
 
-    // 2) ステータス確認（POSTのみ）
-    const startedAt = Date.now();
-    const TIMEOUT_MS = 90 * 1000; // ←ここで「10秒が10分」を防ぐ（必要なら60〜120で調整）
+document.getElementById("status").innerText="生成中...";
 
-    async function poll(){
-      // タイムアウト
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        throw new Error("時間内に完了しませんでした（混雑中の可能性）。もう一度試してください。");
-      }
+document.getElementById("error").innerText="";
 
-      const stRes = await fetch(apiUrl, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ action:"status", request_id: requestId })
-      });
+setButtonsDisabled(true);
 
-      const stJson = await safeJson(stRes);
 
-      if (!stRes.ok) {
-        throw new Error(JSON.stringify(stJson, null, 2));
-      }
 
-      if (stJson.status === "COMPLETED" && stJson.url) {
-        // 再生
-        audio.src = stJson.url;
-        audio.load();
-        audio.play();
-        status.innerText = "生成完了";
-        generating = false;
-        setButtonsDisabled(false);
-        return;
-      }
+try{
 
-      // 進行中表示（queue_positionあれば出す）
-      if (stJson.queue_position != null) {
-        status.innerText = `作曲中...（待ち順: ${stJson.queue_position}）`;
-      } else {
-        status.innerText = "作曲中...";
-      }
+// 安定prompt取得
+const promptText=
+document.getElementById("prompt").value;
 
-      // 次のポーリング（多重起動防止でtimer管理）
-      pollTimer = setTimeout(() => poll().catch(onFail), 3000);
-    }
 
-    function onFail(e){
-      clearPoll();
-      status.innerText = "生成失敗";
-      error.innerText = (e && e.message) ? e.message : String(e);
-      generating = false;
-      setButtonsDisabled(false);
-    }
+if(!promptText){
 
-    // 開始
-    poll().catch(onFail);
+throw new Error("promptが空です");
 
-  }catch(e){
-    clearPoll();
-    status.innerText="生成失敗";
-    error.innerText = (e && e.message) ? e.message : String(e);
-    generating=false;
-    setButtonsDisabled(false);
-  }
 }
+
+
+
+// =====生成開始=====
+
+const startRes=await fetch(apiUrl,{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+
+prompt:promptText,
+
+duration:sec
+
+})
+
+});
+
+
+const startJson=await safeJson(startRes);
+
+
+
+if(!startRes.ok){
+
+throw new Error(JSON.stringify(startJson,null,2));
+
+}
+
+
+
+if(!startJson.request_id){
+
+throw new Error(JSON.stringify(startJson,null,2));
+
+}
+
+
+const requestId=startJson.request_id;
+
+
+document.getElementById("status").innerText="作曲中...";
+
+
+
+const startedAt=Date.now();
+
+// 最大2分
+const TIMEOUT=120000;
+
+
+
+
+async function poll(){
+
+
+// タイムアウト防止
+
+if(Date.now()-startedAt>TIMEOUT){
+
+throw new Error("時間内に完了しませんでした");
+
+}
+
+
+// ステータス取得
+
+const stRes=await fetch(apiUrl,{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+
+action:"status",
+
+request_id:requestId
+
+})
+
+});
+
+
+const stJson=await safeJson(stRes);
+
+
+
+if(!stRes.ok){
+
+throw new Error(JSON.stringify(stJson,null,2));
+
+}
+
+
+
+// 完了
+
+if(stJson.status==="COMPLETED" && stJson.url){
+
+const audio=document.getElementById("audio");
+
+
+audio.src=stJson.url;
+
+audio.load();
+
+audio.play();
+
+
+document.getElementById("status").innerText="生成完了";
+
+
+generating=false;
+
+setButtonsDisabled(false);
+
+
+return;
+
+}
+
+
+
+// 進行表示
+
+if(stJson.queue_position!=null){
+
+document.getElementById("status").innerText=
+"作曲中...（待ち順:"+stJson.queue_position+"）";
+
+}else{
+
+document.getElementById("status").innerText="作曲中...";
+
+}
+
+
+
+// 次回ポーリング
+
+pollTimer=setTimeout(()=>poll().catch(onFail),3000);
+
+
+}
+
+
+
+
+function onFail(e){
+
+clearPoll();
+
+document.getElementById("status").innerText="生成失敗";
+
+document.getElementById("error").innerText=
+(e && e.message)?e.message:String(e);
+
+generating=false;
+
+setButtonsDisabled(false);
+
+}
+
+
+
+// 開始
+
+poll().catch(onFail);
+
+
+
+}catch(e){
+
+clearPoll();
+
+document.getElementById("status").innerText="生成失敗";
+
+document.getElementById("error").innerText=
+(e && e.message)?e.message:String(e);
+
+generating=false;
+
+setButtonsDisabled(false);
+
+}
+
+
+}
+
+
+
 </script>
+
 </body>
 </html>
