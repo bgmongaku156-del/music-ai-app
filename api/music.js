@@ -1,40 +1,53 @@
-import { fal } from "@fal-ai/client";
-
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
-
 export default async function handler(req, res) {
+
   if (req.method !== "POST") {
     return res.status(200).json({ error: "POST only" });
   }
 
   try {
-    const body =
-      typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const prompt = body.prompt || "relaxing sleep ambient music no vocals";
-    const seconds_total = 5; // ← まずは確実に動く5秒固定
 
-    const result = await fal.subscribe("fal-ai/stable-audio-25/text-to-audio", {
-      input: { prompt, seconds_total },
-      logs: true,
-    });
+    const body = req.body || {};
+    const prompt = body.prompt || "relaxing ambient music";
 
-    // 返り値はモデルで揺れるので全部対応
-    const data = result?.data || result;
-    const url =
-      data?.audio?.url ||
-      data?.audio_url ||
-      data?.url ||
-      data?.output?.audio?.url ||
-      null;
+    const response = await fetch(
+      "https://fal.run/fal-ai/stable-audio-25/text-to-audio",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${process.env.FAL_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          duration_seconds: 10
+        })
+      }
+    );
 
-    if (!url) {
-      return res.status(500).json({ error: "no audio url", debug: data });
+    const data = await response.json();
+
+    console.log("fal response:", data);
+
+    if (!data || !data.audio || !data.audio.url) {
+      return res.status(500).json({
+        error: "生成失敗",
+        data: data
+      });
     }
 
-    return res.status(200).json({ url });
+    res.status(200).json({
+      url: data.audio.url
+    });
+
   } catch (e) {
-    return res.status(500).json({ error: "server error", message: String(e) });
+
+    console.log("ERROR:", e);
+
+    res.status(500).json({
+      error: "サーバーエラー",
+      message: e.toString()
+    });
+
   }
+
 }
