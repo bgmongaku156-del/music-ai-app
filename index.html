@@ -91,15 +91,7 @@ if(generating)return;
 
 generating=true;
 
-const status=document.getElementById("status");
-const error=document.getElementById("error");
-const btn10=document.getElementById("btn10");
-const btn60=document.getElementById("btn60");
-const btn180=document.getElementById("btn180");
-const prompt=document.getElementById("prompt");
-const audio=document.getElementById("audio");
-
-status.innerText="生成中...";
+status.innerText="作曲中...";
 error.innerText="";
 
 btn10.disabled=true;
@@ -108,7 +100,7 @@ btn180.disabled=true;
 
 try{
 
-// ①生成開始
+// 生成開始
 const res=await fetch("/api/music",{
 
 method:"POST",
@@ -124,35 +116,49 @@ duration:sec
 
 });
 
-const startData=await res.json();
 
-if(!startData.request_id){
+const start=await res.json();
 
-throw JSON.stringify(startData,null,2);
+if(!start.request_id){
+
+throw JSON.stringify(start,null,2);
 
 }
 
-status.innerText="AI作曲中...";
+const requestId=start.request_id;
 
-let finished=false;
+
+// Queue監視
 let url=null;
 
+for(let i=0;i<120;i++){
 
-// ②完成待ち
-while(!finished){
+await new Promise(r=>setTimeout(r,2000));
 
-await new Promise(r=>setTimeout(r,4000));
+const r=await fetch(
+"/api/music?request_id="+requestId
+);
 
-const check=await fetch("/api/music?id="+startData.request_id);
+const j=await r.json();
 
-const data=await check.json();
 
-if(data.audio_file){
+if(j.url){
 
-url=data.audio_file.url;
-finished=true;
+url=j.url;
+break;
 
 }
+
+
+status.innerText=
+"作曲中... ("+(i*2)+"秒)";
+
+}
+
+
+if(!url){
+
+throw "生成がタイムアウトしました";
 
 }
 
