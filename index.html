@@ -100,6 +100,16 @@ btn180.disabled=true;
 
 try{
 
+let urls=[];
+
+// ★ 分割数計算（30秒単位）
+let parts=Math.ceil(sec/30);
+
+for(let i=0;i<parts;i++){
+
+status.innerText="生成中 "+(i+1)+" / "+parts;
+
+// API呼び出し
 const res=await fetch("/api/music",{
 
 method:"POST",
@@ -109,14 +119,15 @@ headers:{
 },
 
 body:JSON.stringify({
+
 prompt:prompt.value,
-duration:sec
+
+duration:Math.min(30,sec)
+
 })
 
 });
 
-
-// JSONでもHTMLでも安全
 const text=await res.text();
 
 let data;
@@ -128,9 +139,7 @@ throw text;
 }
 
 
-
-// ===== URL検出（Stable Audio + MusicGen両対応）
-
+// URL取得
 let url=null;
 
 if(data.audio_file){
@@ -154,20 +163,20 @@ url=data.data.audio.url;
 }
 
 if(!url){
-
 throw JSON.stringify(data,null,2);
+}
+
+urls.push(url);
 
 }
 
 
-
-// 再生
-audio.src=url;
+// ★ 最初の曲を再生（安全版）
+audio.src=urls[0];
 
 audio.load();
 
 audio.play();
-
 
 status.innerText="生成完了";
 
@@ -179,7 +188,6 @@ status.innerText="生成失敗";
 error.innerText=e;
 
 }
-
 
 generating=false;
 
