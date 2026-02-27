@@ -6,11 +6,12 @@ if(req.method!=="POST"){
 return res.json({error:"POST only"})
 }
 
+// 同時生成防止（fal制限回避）
 if(running){
 
 return res.json({
 error:"busy",
-message:"他の生成が終わるまで待ってください"
+message:"生成中です。終わるまで待ってください"
 })
 
 }
@@ -21,35 +22,41 @@ try{
 
 const {prompt,duration}=req.body;
 
-const result = await fetch(
-"https://fal.run/fal-ai/musicgen-small",
+const response = await fetch(
+"https://fal.run/fal-ai/musicgen",
 {
 method:"POST",
+
 headers:{
 "Authorization":"Key "+process.env.FAL_KEY,
 "Content-Type":"application/json"
 },
+
 body:JSON.stringify({
-prompt:prompt,
-duration:duration
+
+prompt:prompt || "relaxing ambient music",
+
+duration: duration || 10
+
 })
+
 });
 
-const json=await result.json();
+const data=await response.json();
 
 running=false;
 
-if(!json.audio_url){
+if(!data.audio){
 
 return res.json({
 error:"fal error",
-data:json
+data:data
 })
 
 }
 
 return res.json({
-url:json.audio_url
+url:data.audio.url
 })
 
 }catch(e){
