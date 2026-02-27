@@ -1,80 +1,65 @@
-export default async function handler(req,res){
+export default async function handler(req, res) {
 
-if(req.method!=="POST"){
-return res.status(405).json({error:"POST only"})
+if(req.method !== "POST"){
+return res.status(405).json({error:"POST only"});
 }
 
 try{
 
-const {prompt,duration,format}=req.body
+const {prompt,duration} = req.body;
 
-// 出力形式
-const outputFormat = format || "mp3"
+if(!prompt){
+return res.status(400).json({error:"No prompt"});
+}
 
-
-// fal 高品質生成
-const response=await fetch(
+// fal API
+const response = await fetch(
 "https://fal.run/fal-ai/musicgen",
 {
-
 method:"POST",
 
 headers:{
-"Authorization":"Key "+process.env.FAL_KEY,
-"Content-Type":"application/json"
+"Content-Type":"application/json",
+"Authorization":"Key " + process.env.FAL_KEY
 },
 
 body:JSON.stringify({
 
 prompt:prompt,
 
-duration:duration,
+duration_seconds:duration || 60,
 
-model:"musicgen-large",
-
-// WAVまたはMP3
-format: outputFormat,
-
-// 高品質設定
-temperature:0.7,
-top_k:250,
-top_p:0.95
+format:"wav"
 
 })
+});
 
-})
+const result = await response.json();
 
-const data=await response.json()
+if(!result.audio?.url){
 
-const audioUrl=data.audio.url
-
-
-// 音声取得
-const audioRes=await fetch(audioUrl)
-
-const buffer=await audioRes.arrayBuffer()
-
-
-// WAVならCD品質
-if(outputFormat==="wav"){
-
-res.setHeader("Content-Type","audio/wav")
-
-}else{
-
-// MP3 320kbps想定
-res.setHeader("Content-Type","audio/mpeg")
+return res.status(500).json({
+error:"fal error",
+data:result
+});
 
 }
 
-res.send(Buffer.from(buffer))
+return res.json({
+
+url:result.audio.url
+
+});
 
 
 }catch(e){
 
-res.status(500).json({
-error:"生成失敗"
-})
+return res.status(500).json({
+
+error:"server error",
+message:e.toString()
+
+});
 
 }
 
