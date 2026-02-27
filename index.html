@@ -65,8 +65,12 @@ white-space:pre-wrap;
 10秒生成（テスト）
 </button>
 
-<button onclick="generateMusic(30)" id="btn30">
-30秒生成（テスト）
+<button onclick="generateMusic(60)" id="btn60">
+1分生成
+</button>
+
+<button onclick="generateMusic(180)" id="btn180">
+3分生成
 </button>
 
 <p id="status">
@@ -91,7 +95,8 @@ status.innerText="生成中...";
 error.innerText="";
 
 btn10.disabled=true;
-btn30.disabled=true;
+btn60.disabled=true;
+btn180.disabled=true;
 
 try{
 
@@ -179,7 +184,8 @@ error.innerText=e;
 generating=false;
 
 btn10.disabled=false;
-btn30.disabled=false;
+btn60.disabled=false;
+btn180.disabled=false;
 
 }
 
