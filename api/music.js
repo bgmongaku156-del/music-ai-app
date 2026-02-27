@@ -1,49 +1,39 @@
 export default async function handler(req, res) {
 
-  if (req.method !== "POST") {
-    return res.status(200).json({ "エラー": "POSTのみ" });
-  }
+if(req.method !== "POST"){
+return res.status(200).json({error:"POSTのみ"});
+}
 
-  try {
+try{
 
-    const { prompt, duration } = req.body || {};
+const {prompt,duration} = req.body;
 
-    const response = await fetch(
-      "https://fal.run/fal-ai/musicgen",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${process.env.FAL_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          prompt: prompt || "relaxing ambient music",
-          duration_seconds: duration || 30
-        })
-      }
-    );
+const response = await fetch(
+"https://fal.run/fal-ai/musicgen",
+{
+method:"POST",
+headers:{
+"Authorization":"Key "+process.env.FAL_KEY,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+prompt:prompt,
+duration:duration
+})
+});
 
-    const data = await response.json();
+const data = await response.json();
 
-    if (!data.audio) {
+res.status(200).json({
+url:data.audio.url
+});
 
-      return res.status(500).json({
-        error:"fal error",
-        data:data
-      });
+}catch(e){
 
-    }
+res.status(500).json({
+error:"生成失敗"
+});
 
-    return res.status(200).json({
-      url:data.audio.url
-    });
-
-  } catch(e){
-
-    return res.status(500).json({
-      error:e.toString()
-    });
-
-  }
+}
 
 }
