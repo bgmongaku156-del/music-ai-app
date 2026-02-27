@@ -8,6 +8,7 @@ try{
 
 const {prompt,duration}=req.body;
 
+// falに送る（待たない）
 const response = await fetch(
 "https://fal.run/fal-ai/musicgen",
 {
@@ -18,13 +19,13 @@ headers:{
 },
 body:JSON.stringify({
 prompt:prompt || "relaxing ambient music",
-duration: duration || 10
+duration:duration || 10
 })
 });
 
 const data=await response.json();
 
-// falのURLをそのまま返す
+// falのレスポンスそのまま返す
 return res.json(data);
 
 }catch(e){
