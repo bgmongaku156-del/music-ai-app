@@ -38,6 +38,17 @@ audio{
 width:90%;
 margin-top:20px;
 }
+
+#error{
+width:90%;
+margin:auto;
+margin-top:20px;
+background:#111;
+padding:10px;
+text-align:left;
+font-size:13px;
+white-space:pre-wrap;
+}
 </style>
 
 </head>
@@ -64,6 +75,8 @@ margin-top:20px;
 
 <audio id="audio" controls></audio>
 
+<div id="error"></div>
+
 <script>
 
 let generating=false;
@@ -75,6 +88,7 @@ if(generating)return;
 generating=true;
 
 document.getElementById("status").innerText="生成中...";
+document.getElementById("error").innerText="";
 
 document.getElementById("btn10").disabled=true;
 document.getElementById("btn30").disabled=true;
@@ -99,11 +113,19 @@ duration:sec
 
 });
 
-const data=await res.json();
+const text=await res.text();
+
+let data;
+
+try{
+data=JSON.parse(text);
+}catch{
+throw text;
+}
 
 if(!data.url){
 
-throw "error";
+throw JSON.stringify(data,null,2);
 
 }
 
@@ -121,7 +143,7 @@ document.getElementById("status").innerText="生成完了";
 
 document.getElementById("status").innerText="生成失敗";
 
-alert("生成失敗");
+document.getElementById("error").innerText=e;
 
 }
 
