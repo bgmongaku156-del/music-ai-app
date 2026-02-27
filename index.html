@@ -1,225 +1,55 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>AI音楽生成（商用利用OK）</title>
-
-<meta name="description"
-content="AIが音楽を自動生成します。商用利用可能。">
-
-<script async
-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9468732939524959"
-crossorigin="anonymous"></script>
-
-<style>
-
-body{
-background:#111;
-color:white;
-font-family:sans-serif;
-text-align:center;
-padding:20px;
-}
-
-textarea{
-width:90%;
-height:120px;
-font-size:16px;
-}
-
-button{
-width:90%;
-padding:18px;
-font-size:20px;
-margin-top:10px;
-border-radius:10px;
-border:none;
-background:green;
-color:white;
-}
-
-button:disabled{
-background:gray;
-}
-
-audio{
-width:90%;
-margin-top:20px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h1>AI音楽生成（商用利用OK）</h1>
-
-<p>
-AIが自動で音楽を生成できます。<br>
-生成された音楽は商用利用可能です。
-</p>
-
-
-<!-- 広告 -->
-
-<ins class="adsbygoogle"
-style="display:block;min-height:90px"
-data-ad-client="ca-pub-9468732939524959"
-data-ad-slot="1234567890"
-data-ad-format="auto">
-</ins>
-
-<script>
-(adsbygoogle=window.adsbygoogle||[]).push({});
-</script>
-
-
-<textarea id="prompt">
-relaxing ambient music
-</textarea>
-
-
-<button onclick="watchAd()">
-広告を見る
-</button>
-
-
-<button id="btn1" onclick="gen1()">
-1分生成（広告3回）
-</button>
-
-
-<button id="btn3" onclick="gen3()">
-3分生成（広告4回）
-</button>
-
-
-<p id="status">
-生成できます
-</p>
-
-
-<audio id="player" controls></audio>
-
-
-<button onclick="watchDownloadAd()">
-ダウンロード（広告1回）
-</button>
-
-
-<br><br>
-
-<a href="プライバシー.html">プライバシーポリシー</a>
-<br>
-<a href="利用規約.html">利用規約</a>
-<br>
-<a href="について.html">About</a>
-
-
 <script>
 
-let adsWatched=0
-let blobURL=null
-let generating=false
+let generating = false;
 
+async function generateMusic(duration){
 
+ if(generating) return;
 
-function watchAd(){
+ generating = true;
 
-adsWatched++
+ const btn1 = document.getElementById("btn1");
+ const btn3 = document.getElementById("btn3");
 
-status.innerText=
-"広告 "+adsWatched+"回 表示済み"
+ btn1.disabled = true;
+ btn3.disabled = true;
 
-}
+ document.getElementById("status").innerText="生成中...";
 
+ try{
 
+ const res = await fetch("/api/music",{
+ method:"POST",
+ headers:{
+ "Content-Type":"application/json"
+ },
+ body:JSON.stringify({
+ prompt:document.getElementById("prompt").value,
+ duration:duration
+ })
+ });
 
-async function generate(seconds){
+ const data = await res.json();
 
-if(generating)return
+ if(!data.url){
+ throw new Error("fail");
+ }
 
-generating=true
+ document.getElementById("audio").src=data.url;
 
-status.innerText="生成中..."
+ document.getElementById("status").innerText="生成完了";
 
+ }catch(e){
 
-let res=await fetch("/api/music",{
+ document.getElementById("status").innerText="生成失敗";
 
-method:"POST",
+ }
 
-headers:{
-"Content-Type":"application/json"
-},
+ btn1.disabled=false;
+ btn3.disabled=false;
 
-body:JSON.stringify({
-
-prompt:prompt.value,
-duration:seconds
-
-})
-
-})
-
-
-let blob=await res.blob()
-
-blobURL=URL.createObjectURL(blob)
-
-player.src=blobURL
-
-
-status.innerText="生成完了"
-
-generating=false
+ generating=false;
 
 }
-
-
-
-function gen1(){
-generate(60)
-}
-
-
-function gen3(){
-generate(180)
-}
-
-
-
-function watchDownloadAd(){
-
-setTimeout(()=>{
-
-downloadMusic()
-
-},3000)
-
-}
-
-
-
-function downloadMusic(){
-
-let a=document.createElement("a")
-
-a.href=blobURL
-
-a.download="music.mp3"
-
-a.click()
-
-status.innerText="ダウンロード完了"
-
-}
-
 
 </script>
-
-</body>
-</html>
