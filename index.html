@@ -1,139 +1,151 @@
-export default async function handler(req, res) {
-  const FAL_KEY = process.env.FAL_KEY;
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI音楽生成</title>
 
-  if (!FAL_KEY) {
-    return res.status(500).json({ error: "Server misconfigured", detail: "FAL_KEY is missing" });
-  }
+<style>
+body{background:#000;color:white;text-align:center;font-family:sans-serif;padding:20px;}
+textarea{width:90%;height:120px;font-size:16px;}
+button{width:90%;padding:20px;margin:10px;font-size:18px;background:#2e7d32;color:white;border:none;border-radius:10px;}
+button:disabled{background:#555;}
+audio{width:90%;margin-top:20px;}
+#error{width:90%;margin:auto;margin-top:20px;background:#111;padding:10px;text-align:left;font-size:13px;white-space:pre-wrap;}
+</style>
+</head>
 
-  // 405対策：POSTだけに統一（Vercel側でGETが弾かれても動く）
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
-  }
+<body>
+<h1>AI音楽生成</h1>
 
-  let body;
-  try {
-    body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-  } catch (e) {
-    return res.status(400).json({ error: "Invalid JSON body", detail: String(e) });
-  }
+<textarea id="prompt">relaxing ambient music</textarea>
+<br>
 
-  // action === "status" なら進捗/結果取得（GETの代わり）
-  const action = (body.action || "").toString();
+<button onclick="generateMusic(10)" id="btn10">10秒生成（テスト）</button>
+<button onclick="generateMusic(60)" id="btn60">1分生成</button>
+<button onclick="generateMusic(180)" id="btn180">3分生成</button>
 
-  try {
-    // ---------- STATUS ----------
-    if (action === "status") {
-      const requestId = (body.request_id || "").toString().trim();
-      if (!requestId) return res.status(400).json({ error: "request_id is required" });
+<p id="status">待機中</p>
 
-      // status
-      const statusRes = await fetch(
-        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}/status`,
-        { headers: { Authorization: `Key ${FAL_KEY}` } }
-      );
+<audio id="audio" controls></audio>
 
-      const statusText = await statusRes.text();
-      let statusJson;
-      try {
-        statusJson = JSON.parse(statusText);
-      } catch {
-        return res.status(502).json({ error: "Bad response from fal(status)", raw: statusText });
-      }
+<div id="error"></div>
 
-      if (!statusRes.ok) {
-        return res.status(statusRes.status).json({ error: "fal status error", detail: statusJson });
-      }
+<script>
+const apiUrl = "/api/music";
 
-      if (statusJson.status !== "COMPLETED") {
-        return res.status(200).json({
-          status: statusJson.status,
-          request_id: requestId,
-          queue_position: statusJson.queue_position ?? null,
-        });
-      }
+let generating = false;
+let pollTimer = null;
 
-      // completed -> result
-      const resultRes = await fetch(
-        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}`,
-        { headers: { Authorization: `Key ${FAL_KEY}` } }
-      );
+function setButtonsDisabled(disabled){
+  btn10.disabled = disabled;
+  btn60.disabled = disabled;
+  btn180.disabled = disabled;
+}
 
-      const resultText = await resultRes.text();
-      let resultJson;
-      try {
-        resultJson = JSON.parse(resultText);
-      } catch {
-        return res.status(502).json({ error: "Bad response from fal(result)", raw: resultText });
-      }
+function clearPoll(){
+  if (pollTimer) clearTimeout(pollTimer);
+  pollTimer = null;
+}
 
-      if (!resultRes.ok) {
-        return res.status(resultRes.status).json({ error: "fal result error", detail: resultJson });
-      }
+async function safeJson(res){
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error("JSON parse failed: " + text); }
+}
 
-      // Stable Audio 2.5 の返り値に合わせてURL抽出（保険多め）
-      const url =
-        resultJson?.audio_file?.url ||
-        resultJson?.audio?.url ||
-        resultJson?.url ||
-        resultJson?.data?.audio?.url ||
-        resultJson?.audios?.[0]?.url ||
-        null;
+async function generateMusic(sec){
+  // 強い連打防止（多重実行を絶対にしない）
+  if (generating) return;
 
-      if (!url) {
-        return res.status(500).json({ error: "No audio url in result", result: resultJson });
-      }
+  generating = true;
+  clearPoll();
+  status.innerText = "生成中...";
+  error.innerText = "";
+  setButtonsDisabled(true);
 
-      return res.status(200).json({ status: "COMPLETED", request_id: requestId, url });
-    }
-
-    // ---------- START (GENERATE) ----------
-    const prompt = (body.prompt ?? "").toString().trim();
-    const duration = Number(body.duration);
-
-    if (!prompt) return res.status(400).json({ error: "prompt is required" });
-
-    // seconds_total: 1〜190に丸め（UIは 10/60/180想定）
-    let seconds_total = Math.round(duration);
-    if (!Number.isFinite(seconds_total)) seconds_total = 10;
-    if (seconds_total < 1) seconds_total = 1;
-    if (seconds_total > 190) seconds_total = 190;
-
-    const falRes = await fetch("https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${FAL_KEY}`,
-      },
-      body: JSON.stringify({
-        prompt,
-        seconds_total,
-        num_inference_steps: 4,
-        guidance_scale: 1,
-        sync_mode: false,
-      }),
+  try{
+    // 1) 生成開始（POST）
+    const startRes = await fetch(apiUrl, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ prompt: prompt.value, duration: sec })
     });
 
-    const falText = await falRes.text();
-    let falJson;
-    try {
-      falJson = JSON.parse(falText);
-    } catch {
-      return res.status(502).json({ error: "fal returned non-JSON", raw: falText });
+    const startJson = await safeJson(startRes);
+
+    if (!startRes.ok) {
+      throw new Error(JSON.stringify(startJson, null, 2));
+    }
+    if (!startJson.request_id) {
+      throw new Error("No request_id:\n" + JSON.stringify(startJson, null, 2));
     }
 
-    if (!falRes.ok) {
-      return res.status(falRes.status).json({ error: "fal error", detail: falJson });
+    const requestId = startJson.request_id;
+    status.innerText = "作曲中...";
+
+    // 2) ステータス確認（POSTのみ）
+    const startedAt = Date.now();
+    const TIMEOUT_MS = 90 * 1000; // ←ここで「10秒が10分」を防ぐ（必要なら60〜120で調整）
+
+    async function poll(){
+      // タイムアウト
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        throw new Error("時間内に完了しませんでした（混雑中の可能性）。もう一度試してください。");
+      }
+
+      const stRes = await fetch(apiUrl, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ action:"status", request_id: requestId })
+      });
+
+      const stJson = await safeJson(stRes);
+
+      if (!stRes.ok) {
+        throw new Error(JSON.stringify(stJson, null, 2));
+      }
+
+      if (stJson.status === "COMPLETED" && stJson.url) {
+        // 再生
+        audio.src = stJson.url;
+        audio.load();
+        audio.play();
+        status.innerText = "生成完了";
+        generating = false;
+        setButtonsDisabled(false);
+        return;
+      }
+
+      // 進行中表示（queue_positionあれば出す）
+      if (stJson.queue_position != null) {
+        status.innerText = `作曲中...（待ち順: ${stJson.queue_position}）`;
+      } else {
+        status.innerText = "作曲中...";
+      }
+
+      // 次のポーリング（多重起動防止でtimer管理）
+      pollTimer = setTimeout(() => poll().catch(onFail), 3000);
     }
 
-    if (!falJson.request_id) {
-      return res.status(500).json({ error: "No request_id", detail: falJson });
+    function onFail(e){
+      clearPoll();
+      status.innerText = "生成失敗";
+      error.innerText = (e && e.message) ? e.message : String(e);
+      generating = false;
+      setButtonsDisabled(false);
     }
 
-    return res.status(200).json({
-      request_id: falJson.request_id,
-      status: falJson.status ?? "IN_QUEUE",
-    });
-  } catch (e) {
-    return res.status(500).json({ error: "Server error", detail: String(e) });
+    // 開始
+    poll().catch(onFail);
+
+  }catch(e){
+    clearPoll();
+    status.innerText="生成失敗";
+    error.innerText = (e && e.message) ? e.message : String(e);
+    generating=false;
+    setButtonsDisabled(false);
   }
 }
+</script>
+</body>
+</html>
