@@ -1,24 +1,31 @@
 export default async function handler(req,res){
 
-const FAL_KEY=process.env.FAL_KEY;
+const FAL_KEY = process.env.FAL_KEY;
 
 if(!FAL_KEY){
+
 return res.status(500).json({
 error:"FAL_KEY missing"
 });
+
 }
 
 
+// POSTのみ使用
+
 if(req.method!=="POST"){
+
 return res.status(405).json({
 error:"POST only"
 });
+
 }
+
 
 
 try{
 
-const body=
+const body =
 typeof req.body==="string"
 ?JSON.parse(req.body)
 :req.body;
@@ -29,28 +36,37 @@ typeof req.body==="string"
 
 if(body.action==="status"){
 
-const id=body.request_id;
+const id = body.request_id;
 
 if(!id){
+
 return res.status(400).json({
 error:"request_id required"
 });
+
 }
 
 
-const r=await fetch(
+// POSTで取得（405対策）
 
-`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${id}`,
+const r = await fetch(
+
+"https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/"+id,
 
 {
+
+method:"POST",
+
 headers:{
-Authorization:`Key ${FAL_KEY}`
+Authorization:"Key "+FAL_KEY
 }
+
 }
+
 );
 
 
-const text=await r.text();
+const text = await r.text();
 
 
 let j;
@@ -97,9 +113,9 @@ url:j.audio_file.url
 
 // ===== 生成開始 =====
 
-const prompt=body.prompt;
+const prompt = body.prompt;
 
-const duration=body.duration||10;
+const duration = body.duration || 10;
 
 
 if(!prompt){
@@ -112,7 +128,7 @@ error:"prompt is required"
 
 
 
-const r=await fetch(
+const r = await fetch(
 
 "https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio",
 
@@ -121,8 +137,11 @@ const r=await fetch(
 method:"POST",
 
 headers:{
+
 "Content-Type":"application/json",
-Authorization:`Key ${FAL_KEY}`
+
+Authorization:"Key "+FAL_KEY
+
 },
 
 body:JSON.stringify({
@@ -135,10 +154,12 @@ num_inference_steps:4
 
 })
 
-});
+}
+
+);
 
 
-const text=await r.text();
+const text = await r.text();
 
 
 let j;
