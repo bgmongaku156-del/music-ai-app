@@ -81,8 +81,8 @@ white-space:pre-wrap;
 
 let generating=false;
 
-// ★ falキー（ここだけ変更不要ならそのまま）
-const FAL_KEY = "YOUR_FAL_KEY";
+// falキー
+const FAL_KEY="YOUR_FAL_KEY";
 
 
 async function generateMusic(sec){
@@ -99,7 +99,6 @@ btn30.disabled=true;
 
 try{
 
-// ★ Queue API呼び出し
 const res=await fetch("/api/music",{
 
 method:"POST",
@@ -109,10 +108,8 @@ headers:{
 },
 
 body:JSON.stringify({
-
 prompt:prompt.value,
 duration:sec
-
 })
 
 });
@@ -131,7 +128,7 @@ let finished=false;
 let url=null;
 
 
-// ★ 完了待ちループ
+// 完了待ち
 while(!finished){
 
 await new Promise(r=>setTimeout(r,3000));
@@ -144,11 +141,17 @@ Authorization:"Key "+FAL_KEY
 
 const j=await r.json();
 
-if(j.audio){
 
+// ★ Stable Audio対応
+if(j.audio_file){
+url=j.audio_file.url;
+finished=true;
+}
+
+// MusicGen対応
+else if(j.audio){
 url=j.audio.url;
 finished=true;
-
 }
 
 }
