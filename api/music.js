@@ -1,195 +1,139 @@
 export default async function handler(req, res) {
+  const FAL_KEY = process.env.FAL_KEY;
 
-const FAL_KEY = process.env.FAL_KEY;
+  if (!FAL_KEY) {
+    return res.status(500).json({ error: "Server misconfigured", detail: "FAL_KEY is missing" });
+  }
 
-if(!FAL_KEY){
-return res.status(500).json({
-error:"FAL_KEY missing"
-});
-}
+  // 405対策：POSTだけに統一（Vercel側でGETが弾かれても動く）
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "POST only" });
+  }
 
+  let body;
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.status(400).json({ error: "Invalid JSON body", detail: String(e) });
+  }
 
-// ========= GET (状態確認)
+  // action === "status" なら進捗/結果取得（GETの代わり）
+  const action = (body.action || "").toString();
 
-if(req.method==="GET"){
+  try {
+    // ---------- STATUS ----------
+    if (action === "status") {
+      const requestId = (body.request_id || "").toString().trim();
+      if (!requestId) return res.status(400).json({ error: "request_id is required" });
 
-const id=req.query.request_id;
+      // status
+      const statusRes = await fetch(
+        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}/status`,
+        { headers: { Authorization: `Key ${FAL_KEY}` } }
+      );
 
-if(!id){
-return res.status(400).json({
-error:"request_id required"
-});
-}
+      const statusText = await statusRes.text();
+      let statusJson;
+      try {
+        statusJson = JSON.parse(statusText);
+      } catch {
+        return res.status(502).json({ error: "Bad response from fal(status)", raw: statusText });
+      }
 
-try{
+      if (!statusRes.ok) {
+        return res.status(statusRes.status).json({ error: "fal status error", detail: statusJson });
+      }
 
-const r=await fetch(
-`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${id}/status`,
-{
-headers:{
-Authorization:`Key ${FAL_KEY}`
-}
-}
-);
+      if (statusJson.status !== "COMPLETED") {
+        return res.status(200).json({
+          status: statusJson.status,
+          request_id: requestId,
+          queue_position: statusJson.queue_position ?? null,
+        });
+      }
 
-const t=await r.text();
+      // completed -> result
+      const resultRes = await fetch(
+        `https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${encodeURIComponent(requestId)}`,
+        { headers: { Authorization: `Key ${FAL_KEY}` } }
+      );
 
-let j;
+      const resultText = await resultRes.text();
+      let resultJson;
+      try {
+        resultJson = JSON.parse(resultText);
+      } catch {
+        return res.status(502).json({ error: "Bad response from fal(result)", raw: resultText });
+      }
 
-try{
-j=JSON.parse(t);
-}catch{
-return res.status(500).json({
-error:"Status JSON error",
-raw:t
-});
-}
+      if (!resultRes.ok) {
+        return res.status(resultRes.status).json({ error: "fal result error", detail: resultJson });
+      }
 
+      // Stable Audio 2.5 の返り値に合わせてURL抽出（保険多め）
+      const url =
+        resultJson?.audio_file?.url ||
+        resultJson?.audio?.url ||
+        resultJson?.url ||
+        resultJson?.data?.audio?.url ||
+        resultJson?.audios?.[0]?.url ||
+        null;
 
-if(j.status!=="COMPLETED"){
+      if (!url) {
+        return res.status(500).json({ error: "No audio url in result", result: resultJson });
+      }
 
-return res.json({
-status:j.status,
-request_id:id
-});
+      return res.status(200).json({ status: "COMPLETED", request_id: requestId, url });
+    }
 
-}
+    // ---------- START (GENERATE) ----------
+    const prompt = (body.prompt ?? "").toString().trim();
+    const duration = Number(body.duration);
 
+    if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
-const r2=await fetch(
-`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${id}`,
-{
-headers:{
-Authorization:`Key ${FAL_KEY}`
-}
-}
-);
+    // seconds_total: 1〜190に丸め（UIは 10/60/180想定）
+    let seconds_total = Math.round(duration);
+    if (!Number.isFinite(seconds_total)) seconds_total = 10;
+    if (seconds_total < 1) seconds_total = 1;
+    if (seconds_total > 190) seconds_total = 190;
 
-const t2=await r2.text();
+    const falRes = await fetch("https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Key ${FAL_KEY}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        seconds_total,
+        num_inference_steps: 4,
+        guidance_scale: 1,
+        sync_mode: false,
+      }),
+    });
 
-let j2;
+    const falText = await falRes.text();
+    let falJson;
+    try {
+      falJson = JSON.parse(falText);
+    } catch {
+      return res.status(502).json({ error: "fal returned non-JSON", raw: falText });
+    }
 
-try{
-j2=JSON.parse(t2);
-}catch{
-return res.status(500).json({
-error:"Result JSON error",
-raw:t2
-});
-}
+    if (!falRes.ok) {
+      return res.status(falRes.status).json({ error: "fal error", detail: falJson });
+    }
 
+    if (!falJson.request_id) {
+      return res.status(500).json({ error: "No request_id", detail: falJson });
+    }
 
-const url=
-
-j2.audio?.url ||
-j2.audio_file?.url ||
-j2.url ||
-null;
-
-
-if(!url){
-
-return res.status(500).json({
-error:"No audio URL",
-data:j2
-});
-}
-
-
-return res.json({
-status:"COMPLETED",
-url:url
-});
-
-
-}catch(e){
-
-return res.status(500).json({
-error:"GET error",
-detail:String(e)
-});
-
-}
-
-}
-
-
-
-// ========= POST (生成開始)
-
-if(req.method==="POST"){
-
-try{
-
-const body=req.body;
-
-const prompt=body.prompt||"music";
-
-let seconds=Math.round(body.duration||10);
-
-if(seconds<1)seconds=1;
-if(seconds>180)seconds=180;
-
-
-const r=await fetch(
-"https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio",
-{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:`Key ${FAL_KEY}`
-},
-body:JSON.stringify({
-prompt:prompt,
-seconds_total:seconds
-})
-}
-);
-
-
-const t=await r.text();
-
-let j;
-
-try{
-j=JSON.parse(t);
-}catch{
-return res.status(500).json({
-error:"POST JSON error",
-raw:t
-});
-}
-
-
-if(!j.request_id){
-
-return res.status(500).json({
-error:"No request_id",
-data:j
-});
-}
-
-
-return res.json({
-request_id:j.request_id,
-status:"IN_QUEUE"
-});
-
-
-}catch(e){
-
-return res.status(500).json({
-error:"POST error",
-detail:String(e)
-});
-
-}
-
-}
-
-
-return res.status(405).json({
-error:"POST or GET only"
-});
-
+    return res.status(200).json({
+      request_id: falJson.request_id,
+      status: falJson.status ?? "IN_QUEUE",
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Server error", detail: String(e) });
+  }
 }
