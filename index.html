@@ -50,10 +50,6 @@ width:90%;
 margin-top:20px;
 }
 
-.hidden{
-display:none;
-}
-
 </style>
 
 </head>
@@ -82,37 +78,35 @@ data-ad-format="auto">
 </script>
 
 
-<p id="status">
-広告を読み込んでいます...
-</p>
-
-
-<div id="mainUI" class="hidden">
-
 <textarea id="prompt">
 relaxing ambient music
 </textarea>
 
 
-<button id="adBtn" onclick="watchAd()">
+<button onclick="watchAd()">
 広告を見る
 </button>
 
 
-<button id="btn1" disabled onclick="gen1()">
+<button id="btn1" onclick="gen1()">
 1分生成（広告3回）
 </button>
 
 
-<button id="btn3" disabled onclick="gen3()">
+<button id="btn3" onclick="gen3()">
 3分生成（広告4回）
 </button>
+
+
+<p id="status">
+生成できます
+</p>
 
 
 <audio id="player" controls></audio>
 
 
-<button id="downloadBtn" disabled onclick="watchDownloadAd()">
+<button onclick="watchDownloadAd()">
 ダウンロード（広告1回）
 </button>
 
@@ -125,126 +119,31 @@ relaxing ambient music
 <br>
 <a href="について.html">About</a>
 
-</div>
-
 
 <script>
 
 let adsWatched=0
 let blobURL=null
 let generating=false
-let downloadReady=false
 
 
 
-// 広告読み込み確認
-
-function waitAds(){
-
-let ad=document.querySelector(".adsbygoogle")
-
-if(!ad)return
-
-
-if(ad.offsetHeight>50){
-
-status.innerText="広告を確認しました"
-
-mainUI.classList.remove("hidden")
-
-clearInterval(adTimer)
-
-}
-
-}
-
-
-// 起動時チェック
-
-let adTimer=setInterval(waitAds,1000)
-
-
-
-
-
-// 広告確認
-
-async function checkAds(){
-
-let ad=document.querySelector(".adsbygoogle")
-
-if(!ad || ad.offsetHeight<50){
-
-status.innerText="広告ブロッカーをOFFにしてください"
-
-return false
-
-}
-
-
-await new Promise(r=>setTimeout(r,1000))
-
-
-if(ad.offsetHeight<50){
-
-status.innerText="広告が表示されていません"
-
-return false
-
-}
-
-
-return true
-
-}
-
-
-
-
-async function watchAd(){
-
-let ok=await checkAds()
-
-if(!ok)return
-
+function watchAd(){
 
 adsWatched++
 
-
 status.innerText=
-"広告 "+adsWatched+"回 視聴済み"
-
-
-
-if(adsWatched>=3){
-btn1.disabled=false
-}
-
-if(adsWatched>=4){
-btn3.disabled=false
-}
+"広告 "+adsWatched+"回 表示済み"
 
 }
-
 
 
 
 async function generate(seconds){
 
-let ok=await checkAds()
-
-if(!ok)return
-
 if(generating)return
 
-
 generating=true
-
-
-btn1.disabled=true
-btn3.disabled=true
-adBtn.disabled=true
-
 
 status.innerText="生成中..."
 
@@ -276,15 +175,6 @@ player.src=blobURL
 
 status.innerText="生成完了"
 
-
-adsWatched=0
-
-downloadReady=true
-downloadBtn.disabled=false
-
-adBtn.disabled=false
-
-
 generating=false
 
 }
@@ -302,24 +192,13 @@ generate(180)
 
 
 
-
-async function watchDownloadAd(){
-
-if(!downloadReady)return
-
-let ok=await checkAds()
-
-if(!ok)return
-
-
-status.innerText="ダウンロード広告表示中..."
-
+function watchDownloadAd(){
 
 setTimeout(()=>{
 
 downloadMusic()
 
-},5000)
+},3000)
 
 }
 
@@ -336,9 +215,6 @@ a.download="music.mp3"
 a.click()
 
 status.innerText="ダウンロード完了"
-
-downloadReady=false
-downloadBtn.disabled=true
 
 }
 
