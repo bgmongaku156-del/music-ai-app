@@ -91,7 +91,7 @@ export default async function handler(req, res) {
           prompt,
           seconds_total,
           // 品質寄り（範囲は 4〜8）5
-          num_inference_steps: 8,
+          num_inference_steps: 4,
           guidance_scale: 1,
           sync_mode: false,
         }),
