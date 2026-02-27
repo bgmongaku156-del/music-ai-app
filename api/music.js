@@ -1,65 +1,51 @@
-export default async function handler(req,res){
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(200).json({ error: "POST only" });
+  }
 
-if(req.method!=="POST"){
-return res.json({error:"POST only"})
-}
+  try {
+    if (!process.env.FAL_KEY) {
+      return res.status(500).json({ error: "FAL_KEY missing" });
+    }
 
-try{
+    const body = req.body || {};
+    const prompt = (body.prompt || "relaxing ambient music").toString();
 
-const body=req.body || {};
+    // 10 / 60 / 180 をそのまま扱える（Stable Audio 2.5は seconds_total）
+    const seconds_total = Math.max(5, Math.min(Number(body.duration) || 10, 190));
 
-const prompt = body.prompt || "relaxing ambient music";
+    const modelPath = "fal-ai/stable-audio-25/text-to-audio";
+    const submitUrl = `https://queue.fal.run/${modelPath}`;
 
-// ★ Stable Audioは seconds を使う
-const seconds = body.duration || 30;
+    const r = await fetch(submitUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${process.env.FAL_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        seconds_total,
+      }),
+    });
 
+    const text = await r.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(500).json({ error: "fal submit non-json", raw: text });
+    }
 
-// Stable Audio呼び出し
-const response = await fetch(
-"https://fal.run/fal-ai/stable-audio",
-{
-method:"POST",
+    if (!r.ok || !data.request_id) {
+      return res.status(500).json({ error: "fal submit failed", data });
+    }
 
-headers:{
-"Authorization":"Key "+process.env.FAL_KEY,
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-
-prompt:prompt,
-
-seconds:seconds
-
-})
-
-});
-
-
-// JSONでもHTMLでも安全
-const text = await response.text();
-
-let data;
-
-try{
-data = JSON.parse(text);
-}catch{
-return res.json({
-error:text
-})
-}
-
-
-// そのまま返す（機能維持）
-return res.json(data);
-
-
-}catch(e){
-
-return res.json({
-error:e.toString()
-})
-
-}
-
+    // request_idだけ返す（=すぐ返るのでTimeoutしない）
+    return res.status(200).json({
+      request_id: data.request_id,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "server error", message: String(e) });
+  }
 }
