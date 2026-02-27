@@ -82,121 +82,84 @@ white-space:pre-wrap;
 <div id="error"></div>
 
 <script>
-
 let generating=false;
 
+async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
 async function generateMusic(sec){
+  if(generating) return;
 
-if(generating)return;
+  generating=true;
+  status.innerText="生成中...";
+  error.innerText="";
 
-generating=true;
+  btn10.disabled=true;
+  btn60.disabled=true;
+  btn180.disabled=true;
 
-status.innerText="生成中...";
-error.innerText="";
+  try{
+    // 1) 生成を「投げる」(request_id を受け取る)
+    const submitRes = await fetch("/api/music",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({
+        prompt: prompt.value,
+        duration: sec
+      })
+    });
 
-btn10.disabled=true;
-btn60.disabled=true;
-btn180.disabled=true;
+    const submitText = await submitRes.text();
+    let submitData;
+    try{ submitData = JSON.parse(submitText); } catch { throw submitText; }
 
-try{
+    if(!submitRes.ok || !submitData.request_id){
+      throw JSON.stringify(submitData,null,2);
+    }
 
-let urls=[];
+    const requestId = submitData.request_id;
 
-// ★ 分割数計算（30秒単位）
-let parts=Math.ceil(sec/30);
+    // 2) 完了まで /api/status をポーリング（Vercel Timeoutしない）
+    status.innerText="生成中（AI作曲中）...";
+    let url = null;
 
-for(let i=0;i<parts;i++){
+    for(let i=0;i<120;i++){ // 最大 ~4分（2秒×120）
+      await sleep(2000);
 
-status.innerText="生成中 "+(i+1)+" / "+parts;
+      const stRes = await fetch("/api/status?request_id="+encodeURIComponent(requestId));
+      const stText = await stRes.text();
+      let st;
+      try{ st = JSON.parse(stText); } catch { throw stText; }
 
-// API呼び出し
-const res=await fetch("/api/music",{
+      if(st.status === "COMPLETED" && st.url){
+        url = st.url;
+        break;
+      }
 
-method:"POST",
+      // 任意：状態表示
+      if(st.status){
+        status.innerText = "生成中（"+st.status+"）...";
+      }
+    }
 
-headers:{
-"Content-Type":"application/json"
-},
+    if(!url){
+      throw "時間内に完了しませんでした（混雑中の可能性）。もう一度試してください。";
+    }
 
-body:JSON.stringify({
+    // 3) 再生
+    audio.src = url;
+    audio.load();
+    await audio.play().catch(()=>{});
+    status.innerText="生成完了";
+  }catch(e){
+    status.innerText="生成失敗";
+    error.innerText = String(e);
+  }
 
-prompt:prompt.value,
-
-duration:Math.min(30,sec)
-
-})
-
-});
-
-const text=await res.text();
-
-let data;
-
-try{
-data=JSON.parse(text);
-}catch{
-throw text;
+  generating=false;
+  btn10.disabled=false;
+  btn60.disabled=false;
+  btn180.disabled=false;
 }
-
-
-// URL取得
-let url=null;
-
-if(data.audio_file){
-url=data.audio_file.url;
-}
-
-else if(data.url){
-url=data.url;
-}
-
-else if(data.audio){
-url=data.audio.url;
-}
-
-else if(data.audios){
-url=data.audios[0].url;
-}
-
-else if(data.data?.audio){
-url=data.data.audio.url;
-}
-
-if(!url){
-throw JSON.stringify(data,null,2);
-}
-
-urls.push(url);
-
-}
-
-
-// ★ 最初の曲を再生（安全版）
-audio.src=urls[0];
-
-audio.load();
-
-audio.play();
-
-status.innerText="生成完了";
-
-
-}catch(e){
-
-status.innerText="生成失敗";
-
-error.innerText=e;
-
-}
-
-generating=false;
-
-btn10.disabled=false;
-btn60.disabled=false;
-btn180.disabled=false;
-
-}
-
 </script>
 
 </body>
