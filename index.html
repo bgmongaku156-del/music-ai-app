@@ -9,160 +9,38 @@
     textarea{width:100%;height:120px;font-size:16px}
     button{width:100%;padding:16px;font-size:18px;margin-top:10px;border:0;border-radius:10px;background:#19a34a;color:#fff}
     audio{width:100%;margin-top:16px}
-    .small{opacity:.8;font-size:13px;margin-top:8px;line-height:1.4}
+    a{display:block;margin-top:12px;color:lime}
   </style>
 </head>
 <body>
-  <h2>AI音楽生成（5分 / 10分）</h2>
+  <h2>AI音楽生成</h2>
 
-  <textarea id="prompt">deep sleep relaxing ambient music slow calm peaceful soft piano and pads no vocals</textarea>
-
-  <button onclick="makeMinutes(5)">5分を生成して1曲MP3にする</button>
-  <button onclick="makeMinutes(10)">10分を生成して1曲MP3にする</button>
+  <textarea id="prompt">relaxing sleep ambient music no vocals</textarea>
+  <button onclick="gen()">生成（5秒）</button>
 
   <audio id="player" controls></audio>
-
-  <div class="small" id="status"></div>
-  <a id="downloadLink" style="display:none;color:lime;margin-top:12px;" download="music.mp3">MP3をダウンロード</a>
-
-  <!-- MP3エンコード用（lamejs） -->
-  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+  <a id="download" href="#" download="music.wav">ダウンロード</a>
 
   <script>
-    const statusEl = document.getElementById("status");
-    const player = document.getElementById("player");
-    const downloadLink = document.getElementById("downloadLink");
-
-    function setStatus(t){ statusEl.textContent = t; }
-
-    async function callGen(prompt, seconds){
+    async function gen(){
+      const prompt = document.getElementById("prompt").value;
       const r = await fetch("/api/music",{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ prompt, seconds })
+        body: JSON.stringify({ prompt })
       });
       const d = await r.json();
-      if(!d.url) throw new Error("生成失敗: " + JSON.stringify(d));
-      return d.url;
-    }
-
-    async function fetchArrayBuffer(url){
-      const r = await fetch(url);
-      if(!r.ok) throw new Error("音声取得失敗: " + r.status);
-      return await r.arrayBuffer();
-    }
-
-    async function decodeAudio(ctx, arrayBuffer){
-      return await ctx.decodeAudioData(arrayBuffer.slice(0));
-    }
-
-    function concatAudioBuffers(ctx, buffers){
-      const channels = Math.max(...buffers.map(b => b.numberOfChannels));
-      const sampleRate = buffers[0].sampleRate;
-      const totalLength = buffers.reduce((sum,b)=>sum + b.length, 0);
-
-      const out = ctx.createBuffer(channels, totalLength, sampleRate);
-      let offset = 0;
-
-      for(const b of buffers){
-        for(let ch=0; ch<channels; ch++){
-          const outData = out.getChannelData(ch);
-          const inData = b.getChannelData(Math.min(ch, b.numberOfChannels-1));
-          outData.set(inData, offset);
-        }
-        offset += b.length;
+      if(!d.url){
+        alert("生成失敗");
+        console.log(d);
+        return;
       }
-      return out;
-    }
-
-    // AudioBuffer -> MP3(Blob)  (lamejs)
-    function audioBufferToMp3(audioBuffer){
-      const mp3enc = new lamejs.Mp3Encoder(2, audioBuffer.sampleRate, 128);
-
-      // 2chに揃える
-      const left = audioBuffer.getChannelData(0);
-      const right = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : left;
-
-      const blockSize = 1152;
-      let mp3Data = [];
-
-      for (let i = 0; i < left.length; i += blockSize) {
-        const leftChunk = left.subarray(i, i + blockSize);
-        const rightChunk = right.subarray(i, i + blockSize);
-
-        // float32 -> int16
-        const leftInt16 = floatTo16BitPCM(leftChunk);
-        const rightInt16 = floatTo16BitPCM(rightChunk);
-
-        const mp3buf = mp3enc.encodeBuffer(leftInt16, rightInt16);
-        if (mp3buf.length > 0) mp3Data.push(mp3buf);
-      }
-      const endBuf = mp3enc.flush();
-      if (endBuf.length > 0) mp3Data.push(endBuf);
-
-      return new Blob(mp3Data, { type: "audio/mpeg" });
-    }
-
-    function floatTo16BitPCM(float32Array){
-      const int16 = new Int16Array(float32Array.length);
-      for(let i=0;i<float32Array.length;i++){
-        let s = Math.max(-1, Math.min(1, float32Array[i]));
-        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
-      return int16;
-    }
-
-    async function makeMinutes(minutes){
-      downloadLink.style.display = "none";
-      downloadLink.href = "";
-      player.src = "";
-
-      const prompt = document.getElementById("prompt").value || "sleep music";
-      const totalSeconds = minutes * 60;
-
-      // 190秒上限で分割
-      const chunk = 190;
-      const count = Math.ceil(totalSeconds / chunk);
-
-      setStatus(`生成開始: ${minutes}分（${count}回に分割）`);
-
-      // 1) 分割生成（APIは1回ずつ）
-      const urls = [];
-      for(let i=0;i<count;i++){
-        const sec = Math.min(chunk, totalSeconds - i*chunk);
-        setStatus(`生成中 ${i+1}/${count}（${sec}秒）...`);
-        const url = await callGen(prompt, sec);
-        urls.push(url);
-      }
-
-      // 2) 音声を取得→結合→MP3化
-      setStatus("結合のため音声を取得中...");
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const decoded = [];
-
-      for(let i=0;i<urls.length;i++){
-        setStatus(`取得＆デコード ${i+1}/${urls.length}...`);
-        const ab = await fetchArrayBuffer(urls[i]);
-        const buf = await decodeAudio(ctx, ab);
-        decoded.push(buf);
-      }
-
-      setStatus("結合中...");
-      const merged = concatAudioBuffers(ctx, decoded);
-
-      setStatus("MP3に変換中（端末によって少し時間かかります）...");
-      const mp3Blob = audioBufferToMp3(merged);
-      const blobUrl = URL.createObjectURL(mp3Blob);
-
-      // 3) 再生＆ダウンロード
-      player.src = blobUrl;
+      const player = document.getElementById("player");
+      player.src = d.url;
       player.load();
 
-      downloadLink.href = blobUrl;
-      downloadLink.download = `music_${minutes}min.mp3`;
-      downloadLink.style.display = "block";
-
-      setStatus("完了！再生 or MP3ダウンロードできます。");
+      const dl = document.getElementById("download");
+      dl.href = d.url;
     }
   </script>
 </body>
