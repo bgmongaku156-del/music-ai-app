@@ -1,18 +1,12 @@
 export default async function handler(req, res) {
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
+    return res.status(200).json({ "エラー": "POSTのみ" });
   }
 
   try {
 
-    const { prompt, duration } = req.body;
-
-    if (!process.env.FAL_KEY) {
-      return res.status(500).json({
-        error: "FAL_KEY missing"
-      });
-    }
+    const { prompt, duration } = req.body || {};
 
     const response = await fetch(
       "https://fal.run/fal-ai/musicgen",
@@ -23,8 +17,8 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          prompt: prompt,
-          duration: duration || 10
+          prompt: prompt || "relaxing ambient music",
+          duration_seconds: duration || 30
         })
       }
     );
@@ -32,20 +26,22 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.audio) {
+
       return res.status(500).json({
-        error: "Fal failed",
-        data: data
+        error:"fal error",
+        data:data
       });
+
     }
 
-    res.status(200).json({
-      url: data.audio.url
+    return res.status(200).json({
+      url:data.audio.url
     });
 
-  } catch (e) {
+  } catch(e){
 
-    res.status(500).json({
-      error: e.toString()
+    return res.status(500).json({
+      error:e.toString()
     });
 
   }
