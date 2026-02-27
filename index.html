@@ -1,46 +1,43 @@
 <!DOCTYPE html>
 <html>
 
-<head>
-<meta name="viewport" content="width=device-width">
-</head>
-
 <body style="background:black;color:white;padding:20px;">
 
 <h2>AI音楽生成</h2>
 
 <textarea id="prompt"
 style="width:100%;height:120px;">
-
-relaxing sleep ambient music
-
+relaxing ambient music
 </textarea>
 
-<button onclick="make10()"
+
+<button onclick="make1min()"
 style="width:100%;padding:20px;font-size:20px;">
-
-10秒生成
-
+1分生成（30秒×2）
 </button>
+
 
 <button onclick="make3min()"
 style="width:100%;padding:20px;font-size:20px;">
-
-3分生成（高音質）
-
+3分生成（90秒×2）
 </button>
+
+
+<div id="status"
+style="margin-top:20px;font-size:20px;">
+待機中
+</div>
+
 
 <audio id="player"
 controls
 style="width:100%;margin-top:20px;">
 </audio>
 
+
 <script>
 
-async function make10(){
-
-const prompt=
-document.getElementById("prompt").value
+async function generate(prompt,seconds){
 
 const r=await fetch("/api/music",{
 
@@ -52,42 +49,88 @@ headers:{
 
 body:JSON.stringify({
 prompt:prompt,
-parts:1
+seconds:seconds
 })
 
 })
 
-const d=await r.json()
-
-player.src=d.urls[0]
+return await r.json()
 
 }
 
 
 
-async function make3min(){
+// 共通生成関数
+
+async function generateParts(prompt,seconds,parts){
+
+let list=[]
+
+let totalTime=seconds*parts
+
+let remain=totalTime
+
+for(let i=0;i<parts;i++){
+
+document.getElementById("status").innerText=
+
+"生成中 残り約 "+remain+" 秒"
+
+let start=Date.now()
+
+let d=await generate(prompt,seconds)
+
+list.push(d.url)
+
+let end=Date.now()
+
+let used=Math.floor((end-start)/1000)
+
+remain-=used
+
+if(remain<0)remain=0
+
+}
+
+document.getElementById("status").innerText=
+
+"生成完了"
+
+playList(list)
+
+}
+
+
+
+// 1分生成
+
+function make1min(){
 
 const prompt=
 document.getElementById("prompt").value
 
-const r=await fetch("/api/music",{
+generateParts(prompt,30,2)
 
-method:"POST",
+}
 
-headers:{
-"Content-Type":"application/json"
-},
 
-body:JSON.stringify({
-prompt:prompt,
-parts:18
-})
 
-})
+// 3分生成
 
-const d=await r.json()
+function make3min(){
 
-let list=d.urls
+const prompt=
+document.getElementById("prompt").value
+
+generateParts(prompt,90,2)
+
+}
+
+
+
+// 再生
+
+function playList(list){
 
 let i=0
 
