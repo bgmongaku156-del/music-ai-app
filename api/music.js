@@ -9,17 +9,23 @@ try{
 const {prompt,duration}=req.body;
 
 const response = await fetch(
-"https://queue.fal.run/fal-ai/musicgen",
+"https://fal.run/fal-ai/stable-audio",
 {
 method:"POST",
+
 headers:{
 "Authorization":"Key "+process.env.FAL_KEY,
 "Content-Type":"application/json"
 },
+
 body:JSON.stringify({
-prompt:prompt,
-duration:duration || 10
+
+prompt:prompt || "relaxing ambient music",
+
+seconds: duration || 10
+
 })
+
 });
 
 const data=await response.json();
