@@ -3,24 +3,18 @@ export default async function handler(req,res){
 const FAL_KEY = process.env.FAL_KEY;
 
 if(!FAL_KEY){
-
 return res.status(500).json({
 error:"FAL_KEY missing"
 });
-
 }
 
 
-// POSTのみ使用
-
+// POSTのみ
 if(req.method!=="POST"){
-
 return res.status(405).json({
 error:"POST only"
 });
-
 }
-
 
 
 try{
@@ -36,38 +30,31 @@ typeof req.body==="string"
 
 if(body.action==="status"){
 
-const id = body.request_id;
+const id=body.request_id;
 
 if(!id){
-
 return res.status(400).json({
 error:"request_id required"
 });
-
 }
 
 
-// POSTで取得（405対策）
+// ★ 直接結果取得（最安定）
 
 const r = await fetch(
 
-"https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/"+id,
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${id}`,
 
 {
-
-method:"POST",
-
 headers:{
-Authorization:"Key "+FAL_KEY
+Authorization:`Key ${FAL_KEY}`
 }
-
 }
 
 );
 
 
-const text = await r.text();
-
+const text=await r.text();
 
 let j;
 
@@ -85,9 +72,21 @@ raw:text
 
 
 
-// 未完成
+// 完了チェック
 
-if(!j.audio_file){
+const url =
+
+j?.audio_file?.url ||
+
+j?.audio?.url ||
+
+j?.url ||
+
+null;
+
+
+
+if(!url){
 
 return res.json({
 status:"IN_PROGRESS"
@@ -96,14 +95,11 @@ status:"IN_PROGRESS"
 }
 
 
-
-// 完成
-
 return res.json({
 
 status:"COMPLETED",
 
-url:j.audio_file.url
+url:url
 
 });
 
@@ -113,9 +109,8 @@ url:j.audio_file.url
 
 // ===== 生成開始 =====
 
-const prompt = body.prompt;
-
-const duration = body.duration || 10;
+const prompt=body.prompt;
+const duration=body.duration||10;
 
 
 if(!prompt){
@@ -140,7 +135,7 @@ headers:{
 
 "Content-Type":"application/json",
 
-Authorization:"Key "+FAL_KEY
+Authorization:`Key ${FAL_KEY}`
 
 },
 
@@ -150,7 +145,8 @@ prompt:prompt,
 
 seconds_total:duration,
 
-num_inference_steps:4
+num_inference_steps:4,
+guidance_scale:1
 
 })
 
@@ -159,8 +155,7 @@ num_inference_steps:4
 );
 
 
-const text = await r.text();
-
+const text=await r.text();
 
 let j;
 
