@@ -3,16 +3,20 @@ export default async function handler(req,res){
 const FAL_KEY=process.env.FAL_KEY;
 
 if(!FAL_KEY){
+
 return res.status(500).json({
 error:"FAL_KEY missing"
 });
+
 }
 
 
 if(req.method!=="POST"){
+
 return res.status(405).json({
 error:"POST only"
 });
+
 }
 
 
@@ -30,20 +34,23 @@ typeof req.body==="string"
 
 if(body.action==="status"){
 
-const id=body.request_id;
+const requestId=body.request_id;
 
-if(!id){
+if(!requestId){
+
 return res.status(400).json({
 error:"request_id required"
 });
+
 }
 
 
-// 正しいfal取得方法
 
-const r=await fetch(
+// status取得（正しいURL）
 
-`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${id}`,
+const statusRes=await fetch(
+
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}/status`,
 
 {
 headers:{
@@ -53,49 +60,86 @@ Authorization:`Key ${FAL_KEY}`
 );
 
 
-const text=await r.text();
+const statusText=await statusRes.text();
 
 
-let j;
+let statusJson;
 
 try{
-j=JSON.parse(text);
+statusJson=JSON.parse(statusText);
 }
 catch{
 
 return res.status(500).json({
-error:"JSON error",
-raw:text
+error:"status JSON error",
+raw:statusText
 });
 
 }
+
 
 
 // 未完成
 
-if(j.status!=="COMPLETED"){
+if(statusJson.status!=="COMPLETED"){
 
 return res.json({
 
-status:j.status
+status:statusJson.status,
+
+queue_position:statusJson.queue_position
 
 });
 
 }
 
 
-// URL取得
+
+// 完了 → 取得
+
+const resultRes=await fetch(
+
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}`,
+
+{
+headers:{
+Authorization:`Key ${FAL_KEY}`
+}
+}
+);
+
+
+const resultText=await resultRes.text();
+
+
+let resultJson;
+
+try{
+resultJson=JSON.parse(resultText);
+}
+catch{
+
+return res.status(500).json({
+error:"result JSON error",
+raw:resultText
+});
+
+}
+
+
 
 const url=
 
-j.audio_file?.url ||
-j.audio?.url ||
+resultJson.audio_file?.url||
+resultJson.audio?.url||
 null;
+
 
 
 return res.json({
 
 status:"COMPLETED",
+
 url:url
 
 });
@@ -121,7 +165,7 @@ error:"prompt is required"
 
 
 
-const r=await fetch(
+const falRes=await fetch(
 
 "https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio",
 
@@ -147,19 +191,19 @@ num_inference_steps:4
 });
 
 
-const text=await r.text();
+const falText=await falRes.text();
 
 
-let j;
+let falJson;
 
 try{
-j=JSON.parse(text);
+falJson=JSON.parse(falText);
 }
 catch{
 
 return res.status(500).json({
 error:"fal JSON error",
-raw:text
+raw:falText
 });
 
 }
@@ -167,7 +211,7 @@ raw:text
 
 return res.json({
 
-request_id:j.request_id
+request_id:falJson.request_id
 
 });
 
