@@ -6,17 +6,11 @@ return res.json({error:"POST only"})
 
 try{
 
-const body=req.body || {};
+const {prompt,duration}=req.body;
 
-const prompt=body.prompt || "relaxing ambient music";
-
-// ★まずは短時間生成（Timeout回避）
-const duration=Math.min(body.duration || 10,10);
-
-
-// falに送る（最速レスポンス）
-const response=await fetch(
-"https://fal.run/fal-ai/musicgen",
+// fal Queue API
+const response = await fetch(
+"https://queue.fal.run/fal-ai/musicgen",
 {
 method:"POST",
 headers:{
@@ -24,21 +18,20 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-prompt:prompt,
-duration:duration
+prompt:prompt || "relaxing ambient music",
+duration:duration || 10
 })
 });
 
-// ★レスポンス待機を最小化
-const text=await response.text();
+const data=await response.json();
 
-return res.send(text);
+// request_id返すだけ（即終了）
+return res.json(data);
 
 }catch(e){
 
 return res.json({
-error:"server error",
-message:e.toString()
+error:e.toString()
 })
 
 }
