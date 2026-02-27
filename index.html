@@ -1,194 +1,181 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>AI音楽生成</title>
+export default async function handler(req, res) {
 
-<style>
-body{
-background:#000;
-color:white;
-text-align:center;
-font-family:sans-serif;
-padding:20px;
+const FAL_KEY=process.env.FAL_KEY;
+
+if(!FAL_KEY){
+
+return res.status(500).json({
+error:"FAL_KEY missing"
+});
+
 }
 
-textarea{
-width:90%;
-height:120px;
-font-size:16px;
+
+
+// ===== GET（状態確認）
+
+if(req.method==="GET"){
+
+const requestId=req.query.request_id;
+
+if(!requestId){
+
+return res.status(400).json({
+error:"request_id required"
+});
+
 }
-
-button{
-width:90%;
-padding:20px;
-margin:10px;
-font-size:18px;
-background:#2e7d32;
-color:white;
-border:none;
-border-radius:10px;
-}
-
-button:disabled{
-background:#555;
-}
-
-audio{
-width:90%;
-margin-top:20px;
-}
-
-#error{
-width:90%;
-margin:auto;
-margin-top:20px;
-background:#111;
-padding:10px;
-text-align:left;
-font-size:13px;
-white-space:pre-wrap;
-}
-</style>
-
-</head>
-
-<body>
-
-<h1>AI音楽生成</h1>
-
-<textarea id="prompt">relaxing ambient music</textarea>
-
-<br>
-
-<button onclick="generateMusic(10)" id="btn10">
-10秒生成（テスト）
-</button>
-
-<button onclick="generateMusic(60)" id="btn60">
-1分生成
-</button>
-
-<button onclick="generateMusic(180)" id="btn180">
-3分生成
-</button>
-
-<p id="status">
-待機中
-</p>
-
-<audio id="audio" controls></audio>
-
-<div id="error"></div>
-
-<script>
-
-let generating=false;
-
-async function generateMusic(sec){
-
-if(generating)return;
-
-generating=true;
-
-status.innerText="作曲中...";
-error.innerText="";
-
-btn10.disabled=true;
-btn60.disabled=true;
-btn180.disabled=true;
 
 try{
 
-// 生成開始
-const res=await fetch("/api/music",{
 
-method:"POST",
+const statusRes=await fetch(
 
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}/status`,
+
+{
 headers:{
-"Content-Type":"application/json"
-},
+Authorization:`Key ${FAL_KEY}`
+}
+}
+);
 
-body:JSON.stringify({
-prompt:prompt.value,
-duration:sec
-})
+
+const status=await statusRes.json();
+
+
+
+if(status.status!=="COMPLETED"){
+
+return res.json({
+status:status.status
+});
+
+}
+
+
+
+// 完了したら取得
+
+
+const resultRes=await fetch(
+
+`https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio/requests/${requestId}`,
+
+{
+headers:{
+Authorization:`Key ${FAL_KEY}`
+}
+}
+);
+
+
+const result=await resultRes.json();
+
+
+
+const url=
+
+result?.audio?.url ||
+
+result?.audio_file?.url ||
+
+null;
+
+
+
+return res.json({
+
+status:"COMPLETED",
+
+url:url
 
 });
 
 
-const start=await res.json();
+}catch(e){
 
-if(!start.request_id){
-
-throw JSON.stringify(start,null,2);
+return res.status(500).json({
+error:String(e)
+});
 
 }
 
-const requestId=start.request_id;
+}
 
 
-// Queue監視
-let url=null;
 
-for(let i=0;i<120;i++){
 
-await new Promise(r=>setTimeout(r,2000));
+// ===== POST（生成開始）
 
-const r=await fetch(
-"/api/music?request_id="+requestId
+if(req.method==="POST"){
+
+try{
+
+
+const body=req.body;
+
+const prompt=body.prompt||"music";
+
+const duration=body.duration||10;
+
+
+
+const falRes=await fetch(
+
+"https://queue.fal.run/fal-ai/stable-audio-25/text-to-audio",
+
+{
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+Authorization:`Key ${FAL_KEY}`
+},
+
+body:JSON.stringify({
+
+prompt:prompt,
+
+seconds_total:duration,
+
+num_inference_steps:4,
+guidance_scale:1
+
+})
+
+}
 );
 
-const j=await r.json();
+
+const falJson=await falRes.json();
 
 
-if(j.url){
+return res.json({
 
-url=j.url;
-break;
+request_id:falJson.request_id
 
-}
-
-
-status.innerText=
-"作曲中... ("+(i*2)+"秒)";
-
-}
-
-
-if(!url){
-
-throw "生成がタイムアウトしました";
-
-}
-
-
-// 再生
-audio.src=url;
-audio.load();
-audio.play();
-
-status.innerText="生成完了";
+});
 
 
 }catch(e){
 
-status.innerText="生成失敗";
+return res.status(500).json({
+error:String(e)
+});
 
-error.innerText=e;
+}
 
 }
 
 
-generating=false;
 
-btn10.disabled=false;
-btn60.disabled=false;
-btn180.disabled=false;
+// ===== その他
+
+
+return res.status(200).json({
+error:"Use POST or GET"
+});
+
 
 }
-
-</script>
-
-</body>
-</html>
