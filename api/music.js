@@ -8,7 +8,6 @@ try{
 
 const {prompt,duration}=req.body;
 
-// fal Queue API
 const response = await fetch(
 "https://queue.fal.run/fal-ai/musicgen",
 {
@@ -18,14 +17,13 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-prompt:prompt || "relaxing ambient music",
+prompt:prompt,
 duration:duration || 10
 })
 });
 
 const data=await response.json();
 
-// request_id返すだけ（即終了）
 return res.json(data);
 
 }catch(e){
