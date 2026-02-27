@@ -1,191 +1,161 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI音楽生成</title>
 
-<body style="background:black;color:white;padding:20px;font-family:sans-serif;">
+  <!-- Google Publisher Tag (GPT) -->
+  <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
 
-<h2>AI音楽生成</h2>
+  <style>
+    body{background:#000;color:#fff;font-family:sans-serif;padding:20px}
+    textarea{width:100%;height:120px;font-size:16px}
+    button{width:100%;padding:16px;font-size:18px;margin-top:10px;border:0;border-radius:10px;background:#19a34a;color:#fff}
+    button:disabled{opacity:.5}
+    audio{width:100%;margin-top:16px}
+    #status{margin-top:12px;font-size:18px}
+  </style>
+</head>
+<body>
+  <h2>AI音楽生成</h2>
 
-<textarea id="prompt"
-style="width:100%;height:120px;">
-relaxing ambient music
-</textarea>
+  <textarea id="prompt">relaxing ambient music</textarea>
 
+  <button id="btn1" onclick="make1min()">1分生成（30秒×2 / リワード3回）</button>
+  <button id="btn2" onclick="make3min()">3分生成（90秒×2 / リワード4回）</button>
 
-<button id="btn1"
-onclick="make1min()"
-style="width:100%;padding:20px;font-size:20px;">
-1分生成（広告3回）
-</button>
-
-
-<button id="btn2"
-onclick="make3min()"
-style="width:100%;padding:20px;font-size:20px;">
-3分生成（広告4回）
-</button>
-
-
-<div id="status"
-style="margin-top:20px;font-size:20px;">
-待機中
-</div>
-
-
-<audio id="player"
-controls
-style="width:100%;margin-top:20px;">
-</audio>
-
+  <div id="status">待機中</div>
+  <audio id="player" controls></audio>
 
 <script>
-
-let generating=false
-
-
-function lockButtons(){
-
-document.getElementById("btn1").disabled=true
-document.getElementById("btn2").disabled=true
-
-}
-
-
-function unlockButtons(){
-
-document.getElementById("btn1").disabled=false
-document.getElementById("btn2").disabled=false
-
-}
-
-
-
-async function generate(prompt,seconds){
-
-const r=await fetch("/api/music",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-prompt:prompt,
-seconds:seconds
-})
-
-})
-
-return await r.json()
-
-}
-
-
-
-// 簡易広告
-
-async function showAds(times){
-
-for(let i=0;i<times;i++){
-
-alert("広告を見てください ("+(i+1)+"/"+times+")")
-
-}
-
-}
-
-
-
-// 共通生成
-
-async function generateParts(prompt,seconds,parts,ads){
-
-if(generating)return
-
-generating=true
-
-lockButtons()
-
-await showAds(ads)
-
-document.getElementById("status").innerText="生成中..."
-
-let list=[]
-
-for(let i=0;i<parts;i++){
-
-let d=await generate(prompt,seconds)
-
-list.push(d.url)
-
-}
-
-document.getElementById("status").innerText="生成完了"
-
-playList(list)
-
-unlockButtons()
-
-generating=false
-
-}
-
-
-
-// 1分生成
-
-function make1min(){
-
-const prompt=
-document.getElementById("prompt").value
-
-generateParts(prompt,30,2,3)
-
-}
-
-
-
-// 3分生成
-
-function make3min(){
-
-const prompt=
-document.getElementById("prompt").value
-
-generateParts(prompt,90,2,4)
-
-}
-
-
-
-// 再生
-
-function playList(list){
-
-let i=0
-
-player.src=list[0]
-
-player.onended=function(){
-
-i++
-
-if(i<list.length){
-
-player.src=list[i]
-
-player.play()
-
-}
-
-}
-
-player.play()
-
-}
-
+  // ====== 生成API ======
+  async function generate(prompt, seconds){
+    const r = await fetch("/api/music",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ prompt, seconds })
+    });
+    return await r.json();
+  }
+
+  // ====== 連打防止 ======
+  let generating = false;
+  function lock(){ btn1.disabled = true; btn2.disabled = true; }
+  function unlock(){ btn1.disabled = false; btn2.disabled = false; }
+
+  function playList(list){
+    let i=0;
+    player.src = list[0];
+    player.onended = () => {
+      i++;
+      if(i<list.length){ player.src = list[i]; player.play(); }
+    };
+    player.play();
+  }
+
+  // ====== GPT Rewarded ======
+  // ★ここをAd Managerの値に差し替え
+  const AD_UNIT_PATH = "/1234567/rewarded_unit"; // ← ここだけ後で変更
+
+  let rewardedReady = false;
+  let rewardResolver = null;
+
+  window.googletag = window.googletag || { cmd: [] };
+
+  googletag.cmd.push(function () {
+    const rewardedSlot = googletag.defineOutOfPageSlot(
+      AD_UNIT_PATH,
+      googletag.enums.OutOfPageFormat.REWARDED
+    );
+
+    if (!rewardedSlot) {
+      console.log("Rewarded slot is null (page not eligible or not configured).");
+      return;
+    }
+
+    rewardedSlot.addService(googletag.pubads());
+
+    googletag.pubads().addEventListener("rewardedSlotReady", (e) => {
+      rewardedReady = true;
+      // show()はユーザー操作後に呼ぶ必要があるので、ここでは準備だけ
+      console.log("rewardedSlotReady");
+    });
+
+    googletag.pubads().addEventListener("rewardedSlotGranted", () => {
+      console.log("reward granted");
+      if (rewardResolver) rewardResolver(true);
+      rewardResolver = null;
+    });
+
+    googletag.pubads().addEventListener("rewardedSlotClosed", () => {
+      console.log("rewarded closed");
+      if (rewardResolver) rewardResolver(false);
+      rewardResolver = null;
+      rewardedReady = false;
+      googletag.pubads().refresh([rewardedSlot]);
+    });
+
+    googletag.enableServices();
+    googletag.display(rewardedSlot);
+    googletag.pubads().refresh([rewardedSlot]);
+  });
+
+  async function showOneRewarded(){
+    return new Promise((resolve) => {
+      rewardResolver = resolve;
+      // ユーザー操作直後にshow
+      googletag.cmd.push(function(){
+        // rewardedSlotReady後にshow可能
+        // 失敗時は閉じ扱いになるので、falseが返る
+        try { googletag.pubads().showRewardedAd(); }
+        catch(e){ console.log(e); resolve(false); rewardResolver = null; }
+      });
+    });
+  }
+
+  async function showRewardedTimes(n){
+    for(let i=0;i<n;i++){
+      status.innerText = `広告表示中... (${i+1}/${n})`;
+      const ok = await showOneRewarded();
+      if(!ok) return false; // ユーザーが閉じた/失敗
+    }
+    return true;
+  }
+
+  // ====== 生成フロー ======
+  async function runGenerate(partsSeconds, partsCount, rewardTimes){
+    if(generating) return;
+    generating = true;
+    lock();
+
+    const ok = await showRewardedTimes(rewardTimes);
+    if(!ok){
+      status.innerText = "広告が完了しなかったのでキャンセルしました";
+      unlock(); generating=false; return;
+    }
+
+    status.innerText = "生成中...";
+    const prompt = document.getElementById("prompt").value;
+
+    const list = [];
+    for(let i=0;i<partsCount;i++){
+      const d = await generate(prompt, partsSeconds);
+      if(!d.url){
+        console.log(d);
+        status.innerText = "生成失敗";
+        unlock(); generating=false; return;
+      }
+      list.push(d.url);
+    }
+
+    status.innerText = "生成完了";
+    playList(list);
+    unlock(); generating=false;
+  }
+
+  function make1min(){ runGenerate(30, 2, 3); }
+  function make3min(){ runGenerate(90, 2, 4); }
 </script>
-
 </body>
-
 </html>
