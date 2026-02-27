@@ -1,144 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI音楽生成</title>
+
+<style>
+body{
+background:#000;
+color:white;
+text-align:center;
+font-family:sans-serif;
+padding:20px;
+}
+
+textarea{
+width:90%;
+height:120px;
+font-size:16px;
+}
+
+button{
+width:90%;
+padding:20px;
+margin:10px;
+font-size:18px;
+background:#2e7d32;
+color:white;
+border:none;
+border-radius:10px;
+}
+
+button:disabled{
+background:#555;
+}
+
+audio{
+width:90%;
+margin-top:20px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>AI音楽生成</h1>
+
+<textarea id="prompt">relaxing ambient music</textarea>
+
+<br>
+
+<button onclick="generateMusic(10)" id="btn10">
+10秒生成（テスト）
+</button>
+
+<button onclick="generateMusic(30)" id="btn30">
+30秒生成（テスト）
+</button>
+
+<p id="status">
+待機中
+</p>
+
+<audio id="audio" controls></audio>
+
 <script>
-  // ====== ここはあなたのHTMLのidに合わせる ======
-  const promptBox = document.getElementById("prompt");     // テキスト入力
-  const statusText = document.getElementById("status");    // 「待機中/生成中」表示
-  const audio = document.getElementById("audio");          // audioタグ
-  const btn10 = document.getElementById("btn10");          // 10秒ボタン
-  const btn30 = document.getElementById("btn30");          // 30秒ボタン
-  // ==============================================
 
-  // 連打/多重生成を永久対策するための状態管理
-  let generating = false;
-  let currentAbort = null;
+let generating=false;
 
-  // 多タブ対策（同じ端末で複数タブ開いても連打扱いにしない）
-  const bc = ("BroadcastChannel" in window) ? new BroadcastChannel("music-gen") : null;
-  const LOCK_KEY = "music_gen_lock_v1";
-  const LOCK_TTL_MS = 2 * 60 * 1000; // 2分（生成が長くても勝手に永久ロックにならないように）
+async function generateMusic(sec){
 
-  function now() { return Date.now(); }
+if(generating)return;
 
-  function setUiGenerating(isGenerating) {
-    generating = isGenerating;
+generating=true;
 
-    if (btn10) btn10.disabled = isGenerating;
-    if (btn30) btn30.disabled = isGenerating;
+document.getElementById("status").innerText="生成中...";
 
-    // 連打防止：見た目も分かりやすく
-    if (isGenerating) {
-      statusText && (statusText.textContent = "生成中...");
-    } else {
-      statusText && (statusText.textContent = "待機中");
-    }
-  }
+document.getElementById("btn10").disabled=true;
+document.getElementById("btn30").disabled=true;
 
-  function acquireLock() {
-    // ロックが残っていてもTTL過ぎたら解除
-    const raw = localStorage.getItem(LOCK_KEY);
-    if (raw) {
-      try {
-        const lock = JSON.parse(raw);
-        if (lock && lock.until && lock.until > now()) {
-          return false; // まだロック中
-        }
-      } catch (_) {}
-    }
+try{
 
-    // ロック取得
-    localStorage.setItem(LOCK_KEY, JSON.stringify({ until: now() + LOCK_TTL_MS }));
-    bc && bc.postMessage({ type: "lock", until: now() + LOCK_TTL_MS });
-    return true;
-  }
+const res=await fetch("/api/music",{
 
-  function releaseLock() {
-    localStorage.removeItem(LOCK_KEY);
-    bc && bc.postMessage({ type: "unlock" });
-  }
+method:"POST",
 
-  // 他タブでロックされたらこのタブもUI同期
-  if (bc) {
-    bc.onmessage = (ev) => {
-      if (ev.data?.type === "lock") setUiGenerating(true);
-      if (ev.data?.type === "unlock") setUiGenerating(false);
-    };
-  }
+headers:{
+"Content-Type":"application/json"
+},
 
-  // ====== これが「永久対策」付きの生成関数（置き換え対象） ======
-  async function generateMusic(seconds) {
-    // 1) JS上の二重実行ガード
-    if (generating) return;
+body:JSON.stringify({
 
-    // 2) 多タブ含めたロック（同端末の二重生成を防ぐ）
-    if (!acquireLock()) {
-      alert("生成中です（別タブ/連打防止）");
-      return;
-    }
+prompt:document.getElementById("prompt").value,
 
-    // 3) もし前の通信が残ってたらキャンセル（連打で同時に走らない）
-    if (currentAbort) {
-      try { currentAbort.abort(); } catch (_) {}
-    }
-    currentAbort = new AbortController();
+duration:sec
 
-    setUiGenerating(true);
+})
 
-    try {
-      const prompt = (promptBox?.value || "").trim();
-      if (!prompt) {
-        alert("テキストを入力してください");
-        return;
-      }
+});
 
-      const res = await fetch("/api/music", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        signal: currentAbort.signal,
-        body: JSON.stringify({
-          prompt,
-          duration: seconds
-        })
-      });
+const data=await res.json();
 
-      const data = await res.json().catch(() => ({}));
+if(!data.url){
 
-      if (!res.ok) {
-        // サーバーからエラーが返ってきた時に理由が見える
-        console.error("API error:", res.status, data);
-        throw new Error(data?.error || "生成失敗");
-      }
+throw "error";
 
-      if (!data?.url) {
-        console.error("No url:", data);
-        throw new Error("生成失敗（音声URLなし）");
-      }
+}
 
-      // 再生できない対策：URLを確実にaudioへ
-      audio.src = data.url;
-      audio.load();
+const audio=document.getElementById("audio");
 
-      // モバイルで再生がブロックされる場合もあるので失敗しても握りつぶさない
-      await audio.play().catch((e) => console.warn("play blocked:", e));
+audio.src=data.url;
 
-      statusText && (statusText.textContent = "生成完了");
-    } catch (e) {
-      // Abortはエラー表示しない（連打キャンセルなど）
-      if (e?.name === "AbortError") {
-        console.warn("aborted");
-      } else {
-        console.error(e);
-        statusText && (statusText.textContent = "生成失敗");
-        alert("生成失敗");
-      }
-    } finally {
-      // 4) 必ず解除（永久ロックにならない）
-      currentAbort = null;
-      releaseLock();
-      setUiGenerating(false);
-    }
-  }
+audio.load();
 
-  // ボタンに紐付け（あなたの既存 onclick があるなら不要）
-  if (btn10) btn10.onclick = () => generateMusic(10);
-  if (btn30) btn30.onclick = () => generateMusic(30);
+audio.play();
+
+document.getElementById("status").innerText="生成完了";
+
+}catch(e){
+
+document.getElementById("status").innerText="生成失敗";
+
+alert("生成失敗");
+
+}
+
+generating=false;
+
+document.getElementById("btn10").disabled=false;
+document.getElementById("btn30").disabled=false;
+
+}
+
 </script>
+
+</body>
+</html>
