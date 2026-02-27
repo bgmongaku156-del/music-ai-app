@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 
-<body style="background:black;color:white;padding:20px;">
+<body style="background:black;color:white;padding:20px;font-family:sans-serif;">
 
 <h2>AI音楽生成</h2>
 
@@ -11,15 +11,17 @@ relaxing ambient music
 </textarea>
 
 
-<button onclick="make1min()"
+<button id="btn1"
+onclick="make1min()"
 style="width:100%;padding:20px;font-size:20px;">
-1分生成（30秒×2）
+1分生成（広告3回）
 </button>
 
 
-<button onclick="make3min()"
+<button id="btn2"
+onclick="make3min()"
 style="width:100%;padding:20px;font-size:20px;">
-3分生成（90秒×2）
+3分生成（広告4回）
 </button>
 
 
@@ -36,6 +38,26 @@ style="width:100%;margin-top:20px;">
 
 
 <script>
+
+let generating=false
+
+
+function lockButtons(){
+
+document.getElementById("btn1").disabled=true
+document.getElementById("btn2").disabled=true
+
+}
+
+
+function unlockButtons(){
+
+document.getElementById("btn1").disabled=false
+document.getElementById("btn2").disabled=false
+
+}
+
+
 
 async function generate(prompt,seconds){
 
@@ -60,43 +82,51 @@ return await r.json()
 
 
 
-// 共通生成関数
+// 簡易広告
 
-async function generateParts(prompt,seconds,parts){
+async function showAds(times){
+
+for(let i=0;i<times;i++){
+
+alert("広告を見てください ("+(i+1)+"/"+times+")")
+
+}
+
+}
+
+
+
+// 共通生成
+
+async function generateParts(prompt,seconds,parts,ads){
+
+if(generating)return
+
+generating=true
+
+lockButtons()
+
+await showAds(ads)
+
+document.getElementById("status").innerText="生成中..."
 
 let list=[]
 
-let totalTime=seconds*parts
-
-let remain=totalTime
-
 for(let i=0;i<parts;i++){
-
-document.getElementById("status").innerText=
-
-"生成中 残り約 "+remain+" 秒"
-
-let start=Date.now()
 
 let d=await generate(prompt,seconds)
 
 list.push(d.url)
 
-let end=Date.now()
-
-let used=Math.floor((end-start)/1000)
-
-remain-=used
-
-if(remain<0)remain=0
-
 }
 
-document.getElementById("status").innerText=
-
-"生成完了"
+document.getElementById("status").innerText="生成完了"
 
 playList(list)
+
+unlockButtons()
+
+generating=false
 
 }
 
@@ -109,7 +139,7 @@ function make1min(){
 const prompt=
 document.getElementById("prompt").value
 
-generateParts(prompt,30,2)
+generateParts(prompt,30,2,3)
 
 }
 
@@ -122,7 +152,7 @@ function make3min(){
 const prompt=
 document.getElementById("prompt").value
 
-generateParts(prompt,90,2)
+generateParts(prompt,90,2,4)
 
 }
 
