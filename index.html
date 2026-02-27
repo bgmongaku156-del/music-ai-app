@@ -1,70 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta charset="UTF-8">
 <title>AI音楽生成（商用利用OK）</title>
 
-<!-- AdSense -->
-<script async
-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9468732939524959"
-crossorigin="anonymous"></script>
-
 <style>
-
 body{
-background:#111;
+background:black;
 color:white;
-font-family:sans-serif;
 text-align:center;
-padding:20px;
+font-family:sans-serif;
 }
 
 textarea{
-
 width:90%;
-height:120px;
-
+height:100px;
 font-size:18px;
-
-margin-bottom:20px;
-
 }
 
 button{
-
-width:90%;
-padding:18px;
+padding:15px;
 font-size:20px;
 margin:10px;
-
-border:none;
-border-radius:10px;
-
 background:green;
 color:white;
-
+border:none;
+border-radius:10px;
 }
 
 button:disabled{
-
-background:#444;
-
+background:gray;
 }
 
 audio{
-
 width:90%;
 margin-top:20px;
-
-}
-
-#status{
-
-margin-top:20px;
-font-size:20px;
-
 }
 
 </style>
@@ -75,143 +45,77 @@ font-size:20px;
 
 <h2>AI音楽生成（商用利用OK）</h2>
 
-
 <textarea id="prompt">
-
-relaxing sleep piano music calm no vocals
-
+relaxing sleep music calm ambient no vocals
 </textarea>
 
+<br>
 
-<button id="btn1" onclick="generateMusic(60)">
-1分生成（広告3回）
+<button id="btn1" onclick="gen(60)">
+1分生成
 </button>
 
-
-<button id="btn3" onclick="generateMusic(180)">
-3分生成（広告4回）
+<button id="btn3" onclick="gen(180)">
+3分生成
 </button>
 
+<br>
 
-<div id="status">
+<div id="status"></div>
 
-待機中
+<audio id="player" controls></audio>
 
-</div>
+<br>
 
-
-<audio id="audio" controls></audio>
-
-
-<br><br>
-
-
-<button onclick="downloadMusic()">
-
-ダウンロード（広告1回）
-
-</button>
-
-
+<a id="download" style="color:yellow"></a>
 
 <script>
 
-let generating=false;
-let audioURL="";
+async function gen(sec){
 
+document.getElementById("btn1").disabled=true
+document.getElementById("btn3").disabled=true
 
-async function generateMusic(duration){
-
-if(generating)return;
-
-generating=true;
-
-
-document.getElementById("btn1").disabled=true;
-document.getElementById("btn3").disabled=true;
-
-document.getElementById("status").innerText="生成中...";
+document.getElementById("status").innerHTML="生成中..."
 
 try{
 
-
-const res=await fetch("/api/music",{
-
+let res=await fetch("/api/music",{
 method:"POST",
-
 headers:{
-
 "Content-Type":"application/json"
-
 },
-
 body:JSON.stringify({
-
 prompt:document.getElementById("prompt").value,
-
-duration:duration
-
+duration:sec
+})
 })
 
-});
-
-
-const data=await res.json();
-
+let data=await res.json()
 
 if(!data.url){
-
-throw new Error("fail");
-
+throw "error"
 }
 
+document.getElementById("player").src=data.url
 
-audioURL=data.url;
+document.getElementById("download").href=data.url
+document.getElementById("download").innerHTML="ダウンロード"
 
-document.getElementById("audio").src=audioURL;
-
-document.getElementById("status").innerText="生成完了";
-
+document.getElementById("status").innerHTML="生成完了"
 
 }catch(e){
 
-document.getElementById("status").innerText="生成失敗";
+document.getElementById("status").innerHTML="生成失敗"
 
 }
 
-
-generating=false;
-
-document.getElementById("btn1").disabled=false;
-document.getElementById("btn3").disabled=false;
+document.getElementById("btn1").disabled=false
+document.getElementById("btn3").disabled=false
 
 }
-
-
-
-function downloadMusic(){
-
-if(!audioURL){
-
-alert("先に生成してください");
-
-return;
-
-}
-
-const a=document.createElement("a");
-
-a.href=audioURL;
-
-a.download="music.wav";
-
-a.click();
-
-}
-
 
 </script>
 
 </body>
-
 </html>
