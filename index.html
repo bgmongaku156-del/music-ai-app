@@ -81,6 +81,10 @@ white-space:pre-wrap;
 
 let generating=false;
 
+// ★ falキー（ここだけ変更不要ならそのまま）
+const FAL_KEY = "YOUR_FAL_KEY";
+
+
 async function generateMusic(sec){
 
 if(generating)return;
@@ -95,6 +99,7 @@ btn30.disabled=true;
 
 try{
 
+// ★ Queue API呼び出し
 const res=await fetch("/api/music",{
 
 method:"POST",
@@ -106,56 +111,53 @@ headers:{
 body:JSON.stringify({
 
 prompt:prompt.value,
-
 duration:sec
 
 })
 
 });
 
-const text=await res.text();
+const data=await res.json();
 
-let data;
-
-try{
-data=JSON.parse(text);
-}catch{
-throw text;
-}
-
-
-// ★ fal全形式対応（最重要）
-let url=null;
-
-if(data.url){
-url=data.url;
-}
-
-else if(data.audio){
-url=data.audio.url;
-}
-
-else if(data.audios){
-url=data.audios[0].url;
-}
-
-else if(data.data?.audio){
-url=data.data.audio.url;
-}
-
-if(!url){
+if(!data.response_url){
 
 throw JSON.stringify(data,null,2);
 
 }
 
+status.innerText="生成中（AI作曲中）...";
 
+let finished=false;
+let url=null;
+
+
+// ★ 完了待ちループ
+while(!finished){
+
+await new Promise(r=>setTimeout(r,3000));
+
+const r=await fetch(data.response_url,{
+headers:{
+Authorization:"Key "+FAL_KEY
+}
+});
+
+const j=await r.json();
+
+if(j.audio){
+
+url=j.audio.url;
+finished=true;
+
+}
+
+}
+
+
+// 再生
 audio.src=url;
-
 audio.load();
-
 audio.play();
-
 
 status.innerText="生成完了";
 
