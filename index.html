@@ -108,6 +108,7 @@ btn180.disabled=true;
 
 try{
 
+// ①生成開始
 const res=await fetch("/api/music",{
 
 method:"POST",
@@ -123,54 +124,43 @@ duration:sec
 
 });
 
-const text=await res.text();
+const startData=await res.json();
 
-let data;
+if(!startData.request_id){
 
-try{
-data=JSON.parse(text);
-}catch{
-throw text;
+throw JSON.stringify(startData,null,2);
+
 }
 
+status.innerText="AI作曲中...";
 
-// URL検出
-
+let finished=false;
 let url=null;
 
+
+// ②完成待ち
+while(!finished){
+
+await new Promise(r=>setTimeout(r,4000));
+
+const check=await fetch("/api/music?id="+startData.request_id);
+
+const data=await check.json();
+
 if(data.audio_file){
+
 url=data.audio_file.url;
+finished=true;
+
 }
-
-else if(data.url){
-url=data.url;
-}
-
-else if(data.audio){
-url=data.audio.url;
-}
-
-else if(data.audios){
-url=data.audios[0].url;
-}
-
-else if(data.data?.audio){
-url=data.data.audio.url;
-}
-
-if(!url){
-
-throw JSON.stringify(data,null,2);
 
 }
 
 
+// 再生
 audio.src=url;
-
 audio.load();
-
 audio.play();
-
 
 status.innerText="生成完了";
 
