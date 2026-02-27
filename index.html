@@ -1,90 +1,45 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>AI音楽生成</title>
-
-<style>
-body{
-background:#000;
-color:white;
-text-align:center;
-font-family:sans-serif;
-padding:20px;
-}
-
-textarea{
-width:90%;
-height:120px;
-font-size:16px;
-}
-
-button{
-width:90%;
-padding:20px;
-margin:10px;
-font-size:18px;
-background:#2e7d32;
-color:white;
-border:none;
-border-radius:10px;
-}
-
-button:disabled{
-background:#555;
-}
-
-audio{
-width:90%;
-margin-top:20px;
-}
-
-#error{
-width:90%;
-margin:auto;
-margin-top:20px;
-background:#111;
-padding:10px;
-text-align:left;
-font-size:13px;
-white-space:pre-wrap;
-}
-</style>
-
-</head>
-
-<body>
-
-<h1>AI音楽生成</h1>
-
-<textarea id="prompt">relaxing ambient music</textarea>
-
-<br>
-
-<button onclick="generateMusic(10)" id="btn10">
-10秒生成（テスト）
-</button>
-
-<button onclick="generateMusic(60)" id="btn60">
-1分生成
-</button>
-
-<button onclick="generateMusic(180)" id="btn180">
-3分生成
-</button>
-
-<p id="status">
-待機中
-</p>
-
-<audio id="audio" controls></audio>
-
-<div id="error"></div>
-
 <script>
 let generating=false;
 
 async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function saveLastRequest(id){
+  try{ localStorage.setItem("last_request_id", id); }catch(e){}
+}
+function loadLastRequest(){
+  try{ return localStorage.getItem("last_request_id"); }catch(e){ return null; }
+}
+function clearLastRequest(){
+  try{ localStorage.removeItem("last_request_id"); }catch(e){}
+}
+
+async function pollUntilDone(requestId){
+  // 15分（2.5秒×360回）
+  const maxTries = 360;
+  const intervalMs = 2500;
+
+  for(let i=0;i<maxTries;i++){
+    await sleep(intervalMs);
+
+    const stRes = await fetch("/api/status?request_id="+encodeURIComponent(requestId), { cache:"no-store" });
+    const stText = await stRes.text();
+    let st;
+    try{ st = JSON.parse(stText); }catch{ throw stText; }
+
+    if(st.status === "COMPLETED" && st.url){
+      return st.url;
+    }
+
+    if(st.status){
+      status.innerText = "生成中（"+st.status+"）... " + Math.round(((i+1)/maxTries)*100) + "%";
+    }else{
+      status.innerText = "生成中... " + Math.round(((i+1)/maxTries)*100) + "%";
+    }
+  }
+
+  // ここまで来ても終わらない＝混雑。失敗扱いではなく「あとで再取得できる」メッセージにする
+  throw "まだ生成中です（混雑）。少し時間をおいて、もう一度同じボタンを押してください。";
+}
 
 async function generateMusic(sec){
   if(generating) return;
@@ -98,14 +53,29 @@ async function generateMusic(sec){
   btn180.disabled=true;
 
   try{
-    // 1) 生成を「投げる」(request_id を受け取る)
+    // ① まず「前回のrequest」が残ってたら先に回収を試す（連打や混雑でも無駄にならない）
+    const last = loadLastRequest();
+    if(last){
+      status.innerText="前回の生成を確認中...";
+      try{
+        const url = await pollUntilDone(last);
+        audio.src = url;
+        audio.load();
+        await audio.play().catch(()=>{});
+        status.innerText="生成完了（前回の続き）";
+        clearLastRequest();
+        return;
+      }catch(e){
+        // まだ終わってない/別の問題なら、このまま新規生成に進む
+        // ※混雑で長い場合はここで止めたいなら return してOK
+      }
+    }
+
+    // ② 新規生成を「投げる」（request_idを保存）
     const submitRes = await fetch("/api/music",{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({
-        prompt: prompt.value,
-        duration: sec
-      })
+      body:JSON.stringify({ prompt: prompt.value, duration: sec })
     });
 
     const submitText = await submitRes.text();
@@ -117,42 +87,23 @@ async function generateMusic(sec){
     }
 
     const requestId = submitData.request_id;
+    saveLastRequest(requestId);
 
-    // 2) 完了まで /api/status をポーリング（Vercel Timeoutしない）
+    // ③ 完了までポーリング
     status.innerText="生成中（AI作曲中）...";
-    let url = null;
+    const url = await pollUntilDone(requestId);
 
-    for(let i=0;i<120;i++){ // 最大 ~4分（2秒×120）
-      await sleep(2000);
-
-      const stRes = await fetch("/api/status?request_id="+encodeURIComponent(requestId));
-      const stText = await stRes.text();
-      let st;
-      try{ st = JSON.parse(stText); } catch { throw stText; }
-
-      if(st.status === "COMPLETED" && st.url){
-        url = st.url;
-        break;
-      }
-
-      // 任意：状態表示
-      if(st.status){
-        status.innerText = "生成中（"+st.status+"）...";
-      }
-    }
-
-    if(!url){
-      throw "時間内に完了しませんでした（混雑中の可能性）。もう一度試してください。";
-    }
-
-    // 3) 再生
+    // ④ 再生
     audio.src = url;
     audio.load();
     await audio.play().catch(()=>{});
     status.innerText="生成完了";
+    clearLastRequest();
+
   }catch(e){
     status.innerText="生成失敗";
     error.innerText = String(e);
+    // request_id は残しておく（後で回収できるように）
   }
 
   generating=false;
@@ -161,6 +112,3 @@ async function generateMusic(sec){
   btn180.disabled=false;
 }
 </script>
-
-</body>
-</html>
