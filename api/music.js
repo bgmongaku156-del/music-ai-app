@@ -6,14 +6,16 @@ export default async function handler(req, res) {
 
   try {
 
-    const { prompt = "relaxing ambient music", duration = 30 } = req.body || {};
+    const body = req.body || {};
+    const prompt = body.prompt || "relaxing ambient music";
+    const duration = body.duration || 30;
 
     const response = await fetch(
       "https://fal.run/fal-ai/musicgen-small",
       {
         method: "POST",
         headers: {
-          "Authorization": "Key " + process.env.FAL_KEY,
+          "Authorization": `Key ${process.env.FAL_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -23,23 +25,23 @@ export default async function handler(req, res) {
       }
     );
 
-    const data = await response.json();
+    const result = await response.json();
 
-    if (!data.audio?.url) {
+    if (!result.audio || !result.audio.url) {
       return res.status(500).json({
-        error: "生成失敗",
-        data: data
+        error: "fal error",
+        result
       });
     }
 
-    res.status(200).json({
-      url: data.audio.url
+    return res.status(200).json({
+      url: result.audio.url
     });
 
   } catch (e) {
 
-    res.status(500).json({
-      error: "サーバーエラー",
+    return res.status(500).json({
+      error: "server error",
       message: e.toString()
     });
 
