@@ -6,8 +6,15 @@ return res.json({error:"POST only"})
 
 try{
 
-const {prompt,duration}=req.body;
+const body=req.body || {};
 
+const prompt = body.prompt || "relaxing ambient music";
+
+// ★ Stable Audioは seconds を使う
+const seconds = body.duration || 30;
+
+
+// Stable Audio呼び出し
 const response = await fetch(
 "https://fal.run/fal-ai/stable-audio",
 {
@@ -20,17 +27,32 @@ headers:{
 
 body:JSON.stringify({
 
-prompt:prompt || "relaxing ambient music",
+prompt:prompt,
 
-seconds: duration || 10
+seconds:seconds
 
 })
 
 });
 
-const data=await response.json();
 
+// JSONでもHTMLでも安全
+const text = await response.text();
+
+let data;
+
+try{
+data = JSON.parse(text);
+}catch{
+return res.json({
+error:text
+})
+}
+
+
+// そのまま返す（機能維持）
 return res.json(data);
+
 
 }catch(e){
 
