@@ -1,64 +1,40 @@
-export default async function handler(req,res){
+import { fal } from "@fal-ai/client";
 
-if(req.method!=="POST"){
-return res.json({error:"POST only"})
-}
+fal.config({
+  credentials: process.env.FAL_KEY,
+});
 
-try{
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(200).json({ error: "POST only" });
+  }
 
-const body =
-typeof req.body==="string"
-? JSON.parse(req.body)
-: req.body
+  try {
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const prompt = body.prompt || "relaxing sleep ambient music no vocals";
+    const seconds_total = 5; // ← まずは確実に動く5秒固定
 
-const prompt =
-body?.prompt || "relaxing ambient sleep music"
+    const result = await fal.subscribe("fal-ai/stable-audio-25/text-to-audio", {
+      input: { prompt, seconds_total },
+      logs: true,
+    });
 
-// 最短で安定する長さ
-const seconds = 5
+    // 返り値はモデルで揺れるので全部対応
+    const data = result?.data || result;
+    const url =
+      data?.audio?.url ||
+      data?.audio_url ||
+      data?.url ||
+      data?.output?.audio?.url ||
+      null;
 
-const r = await fetch(
-"https://fal.run/fal-ai/stable-audio-25/text-to-audio",
-{
-method:"POST",
-headers:{
-"Authorization":
-"Key f933e32d-5cca-4096-b475-daf56cffc456:241d754d74bcb80c66ad18a9a3dc20c5",
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-prompt:prompt,
-seconds_total:seconds
-})
-}
-)
+    if (!url) {
+      return res.status(500).json({ error: "no audio url", debug: data });
+    }
 
-const d = await r.json()
-
-const url =
-typeof d.audio==="string"
-? d.audio
-: d.audio?.url
-
-if(!url){
-
-return res.json({
-error:"生成失敗",
-debug:d
-})
-
-}
-
-return res.json({
-url:url
-})
-
-}catch(e){
-
-return res.json({
-error:String(e)
-})
-
-}
-
+    return res.status(200).json({ url });
+  } catch (e) {
+    return res.status(500).json({ error: "server error", message: String(e) });
+  }
 }
