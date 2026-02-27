@@ -87,11 +87,11 @@ if(generating)return;
 
 generating=true;
 
-document.getElementById("status").innerText="生成中...";
-document.getElementById("error").innerText="";
+status.innerText="生成中...";
+error.innerText="";
 
-document.getElementById("btn10").disabled=true;
-document.getElementById("btn30").disabled=true;
+btn10.disabled=true;
+btn30.disabled=true;
 
 try{
 
@@ -105,7 +105,7 @@ headers:{
 
 body:JSON.stringify({
 
-prompt:document.getElementById("prompt").value,
+prompt:prompt.value,
 
 duration:sec
 
@@ -123,34 +123,55 @@ data=JSON.parse(text);
 throw text;
 }
 
-if(!data.url){
+
+// ★ fal全形式対応（最重要）
+let url=null;
+
+if(data.url){
+url=data.url;
+}
+
+else if(data.audio){
+url=data.audio.url;
+}
+
+else if(data.audios){
+url=data.audios[0].url;
+}
+
+else if(data.data?.audio){
+url=data.data.audio.url;
+}
+
+if(!url){
 
 throw JSON.stringify(data,null,2);
 
 }
 
-const audio=document.getElementById("audio");
 
-audio.src=data.url;
+audio.src=url;
 
 audio.load();
 
 audio.play();
 
-document.getElementById("status").innerText="生成完了";
+
+status.innerText="生成完了";
+
 
 }catch(e){
 
-document.getElementById("status").innerText="生成失敗";
+status.innerText="生成失敗";
 
-document.getElementById("error").innerText=e;
+error.innerText=e;
 
 }
 
 generating=false;
 
-document.getElementById("btn10").disabled=false;
-document.getElementById("btn30").disabled=false;
+btn10.disabled=false;
+btn30.disabled=false;
 
 }
 
