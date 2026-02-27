@@ -18,15 +18,20 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+
           prompt: prompt,
-          duration_seconds: 10
+
+          duration_seconds: 10,
+
+          sample_rate: 44100,   // 高音質CD品質
+          steps: 50,            // 高品質生成
+          cfg_scale: 7.5        // 音質安定
+
         })
       }
     );
 
     const data = await response.json();
-
-    console.log("fal response:", data);
 
     if (!data || !data.audio || !data.audio.url) {
       return res.status(500).json({
@@ -40,8 +45,6 @@ export default async function handler(req, res) {
     });
 
   } catch (e) {
-
-    console.log("ERROR:", e);
 
     res.status(500).json({
       error: "サーバーエラー",
