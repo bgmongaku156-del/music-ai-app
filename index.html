@@ -1,104 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>AI音楽生成</title>
-
-<style>
-body{
-background:black;
-color:white;
-text-align:center;
-font-family:sans-serif;
-}
-
-textarea{
-width:90%;
-height:100px;
-font-size:18px;
-}
-
-button{
-padding:15px;
-font-size:20px;
-margin:10px;
-background:green;
-color:white;
-border:none;
-border-radius:10px;
-}
-
-audio{
-width:90%;
-margin-top:20px;
-}
-
-</style>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI音楽生成</title>
+  <style>
+    body{background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:20px}
+    textarea{width:90%;height:110px;font-size:16px}
+    button{width:90%;padding:16px;font-size:18px;margin-top:10px;border:0;border-radius:10px;background:green;color:#fff}
+    button:disabled{background:#444}
+    audio{width:90%;margin-top:16px}
+    pre{white-space:pre-wrap;text-align:left;background:#222;padding:12px;border-radius:10px;width:90%;margin:16px auto 0}
+  </style>
 </head>
-
 <body>
+  <h2>AI音楽生成</h2>
 
-<h2>AI音楽生成</h2>
+  <textarea id="prompt">relaxing ambient music</textarea>
 
-<textarea id="prompt">
-relaxing ambient music
-</textarea>
+  <button id="gen10" onclick="gen(10)">10秒生成（テスト）</button>
+  <button id="gen30" onclick="gen(30)">30秒生成（テスト）</button>
 
-<br>
+  <div id="status" style="margin-top:12px">待機中</div>
+  <audio id="player" controls></audio>
+  <pre id="debug"></pre>
 
-<button onclick="generate(10)">
-生成
-</button>
+  <script>
+    let running = false;
 
-<br>
+    async function gen(sec){
+      if(running) return;
+      running = true;
 
-<div id="status">
-待機中
-</div>
+      document.getElementById("gen10").disabled = true;
+      document.getElementById("gen30").disabled = true;
 
-<br>
+      status.textContent = "生成中...";
+      debug.textContent = "";
 
-<audio id="player" controls></audio>
+      try{
+        const res = await fetch("/api/music",{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ prompt: prompt.value, duration: sec })
+        });
 
-<script>
+        const data = await res.json().catch(()=>({error:"invalid json"}));
 
-async function generate(sec){
+        if(!res.ok || !data.url){
+          status.textContent = "生成失敗";
+          debug.textContent = JSON.stringify({ httpStatus: res.status, data }, null, 2);
+          throw new Error("failed");
+        }
 
-document.getElementById("status").innerHTML="生成中...";
+        player.src = data.url;
+        status.textContent = `生成完了（${data.model || "unknown"}）`;
+        debug.textContent = JSON.stringify(data, null, 2);
 
-try{
+      }catch(e){
+        if(!debug.textContent) debug.textContent = String(e);
+      }
 
-let res=await fetch("/api/music",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-prompt:document.getElementById("prompt").value,
-duration:sec
-})
-
-});
-
-let data=await res.json();
-
-document.getElementById("player").src=data.url;
-
-document.getElementById("status").innerHTML="生成完了";
-
-}catch(e){
-
-document.getElementById("status").innerHTML="生成失敗";
-
-}
-
-}
-
-</script>
-
+      document.getElementById("gen10").disabled = false;
+      document.getElementById("gen30").disabled = false;
+      running = false;
+    }
+  </script>
 </body>
 </html>
