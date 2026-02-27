@@ -7,7 +7,9 @@
 
 <title>AI音楽生成（商用利用OK）</title>
 
-<!-- AdSense -->
+<meta name="description"
+content="AIが音楽を自動生成します。商用利用可能。">
+
 <script async
 src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9468732939524959"
 crossorigin="anonymous"></script>
@@ -15,24 +17,24 @@ crossorigin="anonymous"></script>
 <style>
 
 body{
-background:black;
+background:#111;
 color:white;
-text-align:center;
 font-family:sans-serif;
+text-align:center;
+padding:20px;
 }
 
 textarea{
 width:90%;
 height:120px;
-font-size:18px;
-margin-top:20px;
+font-size:16px;
 }
 
 button{
 width:90%;
-padding:20px;
-font-size:22px;
-margin-top:20px;
+padding:18px;
+font-size:20px;
+margin-top:10px;
 border-radius:10px;
 border:none;
 background:green;
@@ -44,18 +46,12 @@ background:gray;
 }
 
 audio{
-margin-top:20px;
 width:90%;
-}
-
-a{
-color:lightblue;
-}
-
-.info{
 margin-top:20px;
-font-size:16px;
-color:#ddd;
+}
+
+.hidden{
+display:none;
 }
 
 </style>
@@ -66,118 +62,192 @@ color:#ddd;
 
 <h1>AI音楽生成（商用利用OK）</h1>
 
+<p>
+AIが自動で音楽を生成できます。<br>
+生成された音楽は商用利用可能です。
+</p>
 
-<div class="info">
 
-このサイトではAIを使って音楽を自動生成できます。<br><br>
+<!-- 広告 -->
 
-生成された音楽は商用利用可能です。<br><br>
+<ins class="adsbygoogle"
+style="display:block;min-height:90px"
+data-ad-client="ca-pub-9468732939524959"
+data-ad-slot="1234567890"
+data-ad-format="auto">
+</ins>
 
-動画制作・ゲーム制作・配信BGMに利用できます。
+<script>
+(adsbygoogle=window.adsbygoogle||[]).push({});
+</script>
 
-</div>
 
+<p id="status">
+広告を読み込んでいます...
+</p>
+
+
+<div id="mainUI" class="hidden">
 
 <textarea id="prompt">
-
-relaxing sleep music calm no vocals
-
+relaxing ambient music
 </textarea>
 
 
-<br>
-
-
-<button id="btn1" onclick="gen1()">
-
-1分生成（広告2回）
-
+<button id="adBtn" onclick="watchAd()">
+広告を見る
 </button>
 
 
-<button id="btn3" onclick="gen3()">
-
-3分生成（広告3回）
-
+<button id="btn1" disabled onclick="gen1()">
+1分生成（広告3回）
 </button>
 
 
+<button id="btn3" disabled onclick="gen3()">
+3分生成（広告4回）
+</button>
+
+
+<audio id="player" controls></audio>
+
+
+<button id="downloadBtn" disabled onclick="watchDownloadAd()">
+ダウンロード（広告1回）
+</button>
+
+
+<br><br>
+
+<a href="プライバシー.html">プライバシーポリシー</a>
 <br>
-
-
-<div id="status">
-
-待機中
+<a href="利用規約.html">利用規約</a>
+<br>
+<a href="について.html">About</a>
 
 </div>
-
-
-<audio id="audio" controls></audio>
-
-
-<br><br>
-
-
-<button onclick="downloadMusic()">
-
-ダウンロード（広告）
-
-</button>
-
-
-<br><br>
-
-
-<a href="プライバシー.html">
-
-プライバシーポリシー
-
-</a>
-
-<br><br>
-
-<a href="利用規約.html">
-
-利用規約
-
-</a>
-
-<br><br>
-
-<a href="について.html">
-
-このサイトについて
-
-</a>
 
 
 <script>
 
-let busy=false
-let audioBlob=null
+let adsWatched=0
+let blobURL=null
+let generating=false
+let downloadReady=false
 
 
 
-function setBusy(state){
+// 広告読み込み確認
 
-busy=state
+function waitAds(){
 
-btn1.disabled=state
-btn3.disabled=state
+let ad=document.querySelector(".adsbygoogle")
+
+if(!ad)return
+
+
+if(ad.offsetHeight>50){
+
+status.innerText="広告を確認しました"
+
+mainUI.classList.remove("hidden")
+
+clearInterval(adTimer)
+
+}
+
+}
+
+
+// 起動時チェック
+
+let adTimer=setInterval(waitAds,1000)
+
+
+
+
+
+// 広告確認
+
+async function checkAds(){
+
+let ad=document.querySelector(".adsbygoogle")
+
+if(!ad || ad.offsetHeight<50){
+
+status.innerText="広告ブロッカーをOFFにしてください"
+
+return false
+
+}
+
+
+await new Promise(r=>setTimeout(r,1000))
+
+
+if(ad.offsetHeight<50){
+
+status.innerText="広告が表示されていません"
+
+return false
+
+}
+
+
+return true
 
 }
 
 
 
+
+async function watchAd(){
+
+let ok=await checkAds()
+
+if(!ok)return
+
+
+adsWatched++
+
+
+status.innerText=
+"広告 "+adsWatched+"回 視聴済み"
+
+
+
+if(adsWatched>=3){
+btn1.disabled=false
+}
+
+if(adsWatched>=4){
+btn3.disabled=false
+}
+
+}
+
+
+
+
 async function generate(seconds){
 
-if(busy) return
+let ok=await checkAds()
 
-setBusy(true)
+if(!ok)return
+
+if(generating)return
+
+
+generating=true
+
+
+btn1.disabled=true
+btn3.disabled=true
+adBtn.disabled=true
+
 
 status.innerText="生成中..."
 
-try{
 
 let res=await fetch("/api/music",{
 
@@ -190,44 +260,66 @@ headers:{
 body:JSON.stringify({
 
 prompt:prompt.value,
-
 duration:seconds
 
 })
 
 })
 
+
 let blob=await res.blob()
 
-audioBlob=blob
+blobURL=URL.createObjectURL(blob)
 
-audio.src=URL.createObjectURL(blob)
+player.src=blobURL
+
 
 status.innerText="生成完了"
 
-}
-catch(e){
 
-status.innerText="生成失敗"
+adsWatched=0
 
-}
+downloadReady=true
+downloadBtn.disabled=false
 
-setBusy(false)
+adBtn.disabled=false
+
+
+generating=false
 
 }
 
 
 
 function gen1(){
-
 generate(60)
-
 }
 
 
 function gen3(){
-
 generate(180)
+}
+
+
+
+
+async function watchDownloadAd(){
+
+if(!downloadReady)return
+
+let ok=await checkAds()
+
+if(!ok)return
+
+
+status.innerText="ダウンロード広告表示中..."
+
+
+setTimeout(()=>{
+
+downloadMusic()
+
+},5000)
 
 }
 
@@ -235,20 +327,23 @@ generate(180)
 
 function downloadMusic(){
 
-if(!audioBlob)return
-
 let a=document.createElement("a")
 
-a.href=URL.createObjectURL(audioBlob)
+a.href=blobURL
 
 a.download="music.mp3"
 
 a.click()
 
+status.innerText="ダウンロード完了"
+
+downloadReady=false
+downloadBtn.disabled=true
+
 }
 
-</script>
 
+</script>
 
 </body>
 </html>
