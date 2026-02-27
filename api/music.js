@@ -1,56 +1,68 @@
-export default async function handler(req, res) {
+export default async function handler(req,res){
 
-  if (req.method !== "POST") {
-    return res.status(200).json({ error: "POST only" });
-  }
+if(req.method!=="POST"){
+return res.json({error:"POST only"})
+}
 
-  try {
+try{
 
-    const body = req.body || {};
-    const prompt = body.prompt || "relaxing ambient music";
+const body=req.body||{}
 
-    const response = await fetch(
-      "https://fal.run/fal-ai/stable-audio-25/text-to-audio",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${process.env.FAL_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+const prompt=
+body.prompt||
+"relaxing ambient music"
 
-          prompt: prompt,
+// 分割回数
+const parts=18
 
-          duration_seconds: 10,
+let urls=[]
 
-          sample_rate: 44100,   // 高音質CD品質
-          steps: 50,            // 高品質生成
-          cfg_scale: 7.5        // 音質安定
+for(let i=0;i<parts;i++){
 
-        })
-      }
-    );
+const r=await fetch(
+"https://fal.run/fal-ai/stable-audio-25/text-to-audio",
+{
+method:"POST",
+headers:{
+"Authorization":`Key ${process.env.FAL_KEY}`,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
 
-    const data = await response.json();
+prompt:prompt,
 
-    if (!data || !data.audio || !data.audio.url) {
-      return res.status(500).json({
-        error: "生成失敗",
-        data: data
-      });
-    }
+seconds_total:10,
 
-    res.status(200).json({
-      url: data.audio.url
-    });
+sample_rate:44100
 
-  } catch (e) {
+})
+}
+)
 
-    res.status(500).json({
-      error: "サーバーエラー",
-      message: e.toString()
-    });
+const d=await r.json()
 
-  }
+const url=
+typeof d.audio==="string"
+? d.audio
+: d.audio?.url
+
+if(url){
+urls.push(url)
+}
+
+}
+
+// URL配列返す
+res.json({
+urls:urls
+})
+
+}catch(e){
+
+res.json({
+error:String(e)
+})
+
+}
 
 }
